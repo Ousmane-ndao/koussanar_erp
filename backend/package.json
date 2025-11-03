@@ -1,0 +1,36 @@
+{
+  "name": "koussanar-erp-backend",
+  "version": "1.0.0",
+  "description": "Backend API pour le système ERP du Lycée de Koussanar",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "check-db": "node check-db.js",
+    "create-admin": "node create-admin.js",
+    "reset-admin": "node reset-admin.js",
+    "verify-admin": "node verify-admin.js",
+    "fix-admin-password": "node fix-admin-password.js",
+    "add-admin-role": "node add-admin-role.js",
+    "create-test-users": "node create-test-users.js"
+  },
+  "keywords": ["erp", "lycee", "mysql", "express"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "express-validator": "^7.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
+
