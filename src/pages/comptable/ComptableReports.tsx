@@ -1,10 +1,11 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Download, TrendingUp, DollarSign } from "lucide-react";
+import { FileText, TrendingUp, DollarSign } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ExportButton";
 
 const ComptableReports = () => {
   const currentYear = new Date().getFullYear();
@@ -17,15 +18,6 @@ const ComptableReports = () => {
     refetchOnWindowFocus: false,
   });
 
-  const handleExportPDF = () => {
-    // TODO: Implémenter l'export PDF
-    alert('Export PDF à implémenter');
-  };
-
-  const handleExportExcel = () => {
-    // TODO: Implémenter l'export Excel
-    alert('Export Excel à implémenter');
-  };
 
   return (
     <DashboardLayout>
@@ -116,30 +108,12 @@ const ComptableReports = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start gap-2 h-auto py-3"
-                onClick={handleExportPDF}
-              >
-                <Download className="h-5 w-5" />
-                <div className="text-left">
-                  <div className="font-medium">Export PDF</div>
-                  <div className="text-sm text-muted-foreground">Rapport financier complet</div>
-                </div>
-              </Button>
-
-              <Button 
-                variant="outline" 
-                className="w-full justify-start gap-2 h-auto py-3"
-                onClick={handleExportExcel}
-              >
-                <Download className="h-5 w-5" />
-                <div className="text-left">
-                  <div className="font-medium">Export Excel</div>
-                  <div className="text-sm text-muted-foreground">Données détaillées</div>
-                </div>
-              </Button>
+            <div className="flex justify-center">
+              <ExportButton
+                onExportPDF={() => api.exportFinancePDF({ annee_scolaire: anneeScolaire })}
+                onExportExcel={() => api.exportFinanceExcel({ annee_scolaire: anneeScolaire })}
+                label="Exporter le rapport"
+              />
             </div>
           </CardContent>
         </Card>
@@ -169,4 +143,6 @@ const ComptableReports = () => {
 };
 
 export default ComptableReports;
+
+
 

@@ -7,3 +7,22 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000') do (
 echo Serveur arrêté.
 pause
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

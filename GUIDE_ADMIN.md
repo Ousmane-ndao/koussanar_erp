@@ -167,3 +167,22 @@ Une fois connecté en tant qu'admin :
 - Vérifiez la console du navigateur (F12) pour les erreurs
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

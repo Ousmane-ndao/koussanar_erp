@@ -149,3 +149,22 @@ router.delete('/:id', authenticateToken, requirePermission('manage_schedule'), a
 
 export default router;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

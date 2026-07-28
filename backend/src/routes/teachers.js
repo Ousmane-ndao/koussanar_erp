@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator';
 import pool from '../database/db.js';
 import { generateUUID } from '../utils/uuid.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { generateUniqueEmail, generatePassword } from '../utils/generate-email.js';
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.post('/', authenticateToken, requireRole('admin'), [
   body('matricule').trim().notEmpty(),
   body('nom').trim().notEmpty(),
   body('prenom').trim().notEmpty(),
-  body('email').isEmail().normalizeEmail(),
+  body('email').optional().isEmail().normalizeEmail(), // Email optionnel, sera généré automatiquement
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -60,7 +61,7 @@ router.post('/', authenticateToken, requireRole('admin'), [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { matricule, nom, prenom, email, telephone, adresse, specialite, date_embauche } = req.body;
+    const { matricule, nom, prenom, email: providedEmail, telephone, adresse, specialite, date_embauche } = req.body;
 
     // Check if matricule exists
     const [existing] = await pool.execute(
@@ -72,19 +73,28 @@ router.post('/', authenticateToken, requireRole('admin'), [
       return res.status(400).json({ message: 'Ce matricule existe déjà' });
     }
 
-    // Check if email exists
-    const [existingEmail] = await pool.execute(
-      'SELECT id FROM profiles WHERE email = ?',
-      [email]
-    );
+    // Générer l'email automatiquement si non fourni
+    let email = providedEmail;
+    if (!email) {
+      email = await generateUniqueEmail(pool, prenom, nom, 5);
+    } else {
+      // Vérifier si l'email fourni existe déjà
+      const [existingEmail] = await pool.execute(
+        'SELECT id FROM profiles WHERE email = ?',
+        [email]
+      );
 
-    if (existingEmail.length > 0) {
-      return res.status(400).json({ message: 'Cet email est déjà enregistré' });
+      if (existingEmail.length > 0) {
+        return res.status(400).json({ message: 'Cet email est déjà enregistré' });
+      }
     }
+
+    // Générer un mot de passe unique de 6 caractères
+    const passwordPlain = generatePassword(6);
+    const password = await bcrypt.hash(passwordPlain, 10);
 
     // Create profile
     const userId = generateUUID();
-    const password = await bcrypt.hash(matricule, 10); // Default password is matricule
 
     await pool.execute(
       'INSERT INTO profiles (id, email, password, nom, prenom, telephone, adresse) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -105,7 +115,13 @@ router.post('/', authenticateToken, requireRole('admin'), [
       [teacherId, userId, matricule, specialite || null, date_embauche || null, 'actif']
     );
 
-    res.status(201).json({ message: 'Enseignant créé avec succès', id: teacherId });
+    res.status(201).json({ 
+      message: 'Enseignant créé avec succès', 
+      id: teacherId,
+      email: email,
+      password: passwordPlain, // Retourner le mot de passe en clair pour l'affichage
+      info: 'Email et mot de passe générés automatiquement'
+    });
   } catch (error) {
     console.error('Create teacher error:', error);
     res.status(500).json({ message: 'Erreur lors de la création de l\'enseignant' });

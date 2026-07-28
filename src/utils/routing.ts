@@ -67,3 +67,22 @@ export const getRoleLabel = (roles: string[]): string => {
   return 'Utilisateur';
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -47,7 +47,7 @@ export const StudentsList = ({ students, onEdit, onDelete, onView, classes, canM
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-md border max-h-[600px] overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -72,7 +72,23 @@ export const StudentsList = ({ students, onEdit, onDelete, onView, classes, canM
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.matricule}</TableCell>
                   <TableCell>{student.prenom} {student.nom}</TableCell>
-                  <TableCell>{format(new Date(student.date_naissance), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>
+                    {student.date_naissance ? (
+                      (() => {
+                        try {
+                          const date = new Date(student.date_naissance);
+                          if (isNaN(date.getTime())) {
+                            return "Date invalide";
+                          }
+                          return format(date, "dd/MM/yyyy");
+                        } catch (e) {
+                          return "Date invalide";
+                        }
+                      })()
+                    ) : (
+                      "Non renseignée"
+                    )}
+                  </TableCell>
                   <TableCell>{student.sexe === "M" ? "Masculin" : "Féminin"}</TableCell>
                   <TableCell>{getClassName(student.classe_id)}</TableCell>
                   <TableCell>{getStatusBadge(student.statut_inscription)}</TableCell>

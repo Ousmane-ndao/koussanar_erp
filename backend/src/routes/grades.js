@@ -199,10 +199,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create grade - Vérifier que le professeur peut saisir cette note
 router.post('/', authenticateToken, requirePermission('enter_grades'), [
   body('student_id').notEmpty(),
-  body('matiere').trim().notEmpty(),
+  body('matiere').optional().trim(),
   body('note').isFloat({ min: 0, max: 20 }),
   body('date_evaluation').isISO8601(),
-  body('annee_scolaire').trim().notEmpty(),
+  body('annee_scolaire').optional().trim(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -235,37 +235,68 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
         return res.status(400).json({ message: 'L\'élève n\'a pas de classe assignée' });
       }
 
-      // Vérifier que le professeur enseigne cette matière dans cette classe
-      const [teachers] = await pool.execute(
-        'SELECT id FROM teachers WHERE user_id = ?',
-        [req.user.id]
-      );
+      // Si une matière est spécifiée, vérifier que le professeur enseigne cette matière dans cette classe
+      if (matiere && matiere.trim()) {
+        const [teachers] = await pool.execute(
+          'SELECT id FROM teachers WHERE user_id = ?',
+          [req.user.id]
+        );
 
-      if (teachers.length === 0) {
-        return res.status(403).json({ message: 'Accès refusé: vous n\'êtes pas un professeur enregistré' });
-      }
+        if (teachers.length === 0) {
+          return res.status(403).json({ message: 'Accès refusé: vous n\'êtes pas un professeur enregistré' });
+        }
 
-      const teacherId = teachers[0].id;
-      const [teacherClass] = await pool.execute(
-        'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ? AND matiere = ?',
-        [teacherId, classeId, matiere]
-      );
+        const teacherId = teachers[0].id;
+        const [teacherClass] = await pool.execute(
+          'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ? AND matiere = ?',
+          [teacherId, classeId, matiere]
+        );
 
-      if (teacherClass.length === 0) {
-        return res.status(403).json({ 
-          message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos propres matières et classes' 
-        });
+        if (teacherClass.length === 0) {
+          return res.status(403).json({ 
+            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos propres matières et classes' 
+          });
+        }
+      } else {
+        // Si pas de matière, vérifier au moins que le professeur enseigne dans cette classe
+        const [teachers] = await pool.execute(
+          'SELECT id FROM teachers WHERE user_id = ?',
+          [req.user.id]
+        );
+
+        if (teachers.length === 0) {
+          return res.status(403).json({ message: 'Accès refusé: vous n\'êtes pas un professeur enregistré' });
+        }
+
+        const teacherId = teachers[0].id;
+        const [teacherClass] = await pool.execute(
+          'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ?',
+          [teacherId, classeId]
+        );
+
+        if (teacherClass.length === 0) {
+          return res.status(403).json({ 
+            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos classes' 
+          });
+        }
       }
     }
 
     const id = generateUUID();
+    
+    // Déterminer l'année scolaire (par défaut: année en cours)
+    let finalAnneeScolaire = annee_scolaire;
+    if (!finalAnneeScolaire || !finalAnneeScolaire.trim()) {
+      const currentYear = new Date().getFullYear();
+      finalAnneeScolaire = `${currentYear}-${currentYear + 1}`;
+    }
 
     await pool.execute(
       `INSERT INTO grades (id, student_id, matiere, note, coefficient, type_evaluation, 
         date_evaluation, annee_scolaire, remarque, created_by) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, student_id, matiere, note, coefficient || 1.0, type_evaluation || 'devoir',
-        date_evaluation, annee_scolaire, remarque || null, req.user.id]
+      [id, student_id, matiere || '', note, coefficient || 1.0, type_evaluation || 'devoir',
+        date_evaluation, finalAnneeScolaire, remarque || null, req.user.id]
     );
 
     res.status(201).json({ message: 'Note enregistrée avec succès', id });
@@ -303,29 +334,53 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
       }
 
       const existingGrade = existingGrades[0];
-      const matiere = req.body.matiere || existingGrade.matiere;
+      const matiere = req.body.matiere !== undefined ? req.body.matiere : existingGrade.matiere;
       const classeId = existingGrade.classe_id;
 
-      // Vérifier que le professeur enseigne cette matière dans cette classe
-      const [teachers] = await pool.execute(
-        'SELECT id FROM teachers WHERE user_id = ?',
-        [req.user.id]
-      );
+      // Si une matière est spécifiée, vérifier que le professeur enseigne cette matière dans cette classe
+      if (matiere && matiere.trim()) {
+        const [teachers] = await pool.execute(
+          'SELECT id FROM teachers WHERE user_id = ?',
+          [req.user.id]
+        );
 
-      if (teachers.length === 0) {
-        return res.status(403).json({ message: 'Accès refusé' });
-      }
+        if (teachers.length === 0) {
+          return res.status(403).json({ message: 'Accès refusé' });
+        }
 
-      const teacherId = teachers[0].id;
-      const [teacherClass] = await pool.execute(
-        'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ? AND matiere = ?',
-        [teacherId, classeId, matiere]
-      );
+        const teacherId = teachers[0].id;
+        const [teacherClass] = await pool.execute(
+          'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ? AND matiere = ?',
+          [teacherId, classeId, matiere]
+        );
 
-      if (teacherClass.length === 0) {
-        return res.status(403).json({ 
-          message: 'Accès refusé: vous ne pouvez modifier que les notes de vos propres matières et classes' 
-        });
+        if (teacherClass.length === 0) {
+          return res.status(403).json({ 
+            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos propres matières et classes' 
+          });
+        }
+      } else {
+        // Si pas de matière, vérifier au moins que le professeur enseigne dans cette classe
+        const [teachers] = await pool.execute(
+          'SELECT id FROM teachers WHERE user_id = ?',
+          [req.user.id]
+        );
+
+        if (teachers.length === 0) {
+          return res.status(403).json({ message: 'Accès refusé' });
+        }
+
+        const teacherId = teachers[0].id;
+        const [teacherClass] = await pool.execute(
+          'SELECT classe_id FROM teacher_classes WHERE teacher_id = ? AND classe_id = ?',
+          [teacherId, classeId]
+        );
+
+        if (teacherClass.length === 0) {
+          return res.status(403).json({ 
+            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos classes' 
+          });
+        }
       }
 
       // Vérifier que le créateur est bien ce professeur (ou admin)
@@ -337,8 +392,15 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
     }
 
     const {
-      matiere, note, coefficient, type_evaluation, date_evaluation, remarque
+      matiere, note, coefficient, type_evaluation, date_evaluation, annee_scolaire, remarque
     } = req.body;
+
+    // Déterminer l'année scolaire (par défaut: année en cours si non fournie)
+    let finalAnneeScolaire = annee_scolaire;
+    if (finalAnneeScolaire !== undefined && (!finalAnneeScolaire || !finalAnneeScolaire.trim())) {
+      const currentYear = new Date().getFullYear();
+      finalAnneeScolaire = `${currentYear}-${currentYear + 1}`;
+    }
 
     await pool.execute(
       `UPDATE grades SET 
@@ -347,10 +409,11 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
         coefficient = COALESCE(?, coefficient),
         type_evaluation = COALESCE(?, type_evaluation),
         date_evaluation = COALESCE(?, date_evaluation),
+        annee_scolaire = COALESCE(?, annee_scolaire),
         remarque = COALESCE(?, remarque)
        WHERE id = ?`,
-      [matiere || null, note || null, coefficient || null, type_evaluation || null,
-        date_evaluation || null, remarque || null, req.params.id]
+      [matiere !== undefined ? (matiere || '') : null, note || null, coefficient || null, type_evaluation || null,
+        date_evaluation || null, finalAnneeScolaire !== undefined ? finalAnneeScolaire : null, remarque || null, req.params.id]
     );
 
     res.json({ message: 'Note modifiée avec succès' });

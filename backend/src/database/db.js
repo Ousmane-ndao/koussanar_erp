@@ -8,23 +8,27 @@ const pool = mysql.createPool({
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'koussanar_erp',
-  port: process.env.DB_PORT || 3306,
+  port: parseInt(process.env.DB_PORT || '3306'),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  connectTimeout: 10000,
+  // 👇 AJOUT OBLIGATOIRE pour Aiven (mode SSL REQUIS)
+  ssl: {
+    rejectUnauthorized: false // Permet la connexion sans avoir à télécharger le certificat CA
+  }
 });
 
-// Test connection
 pool.getConnection()
   .then(connection => {
-    console.log('Connected to MySQL database');
+    console.log('✅ Connected to MySQL database (Aiven)');
     connection.release();
   })
   .catch(err => {
-    console.error('Error connecting to MySQL:', err);
+    console.error('❌ Error connecting to MySQL:', err);
+    // Le pool réessaiera automatiquement
   });
 
 export default pool;
-

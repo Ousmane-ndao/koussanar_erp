@@ -120,38 +120,58 @@ export const StudentForm = ({ onSubmit, initialData, isLoading, classes }: Stude
           <FormField
             control={form.control}
             name="date_naissance"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Date de naissance</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? format(new Date(field.value), "dd/MM/yyyy") : "Sélectionner une date"}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date)}
-                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const dateValue = field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : undefined;
+              return (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Date de naissance</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !dateValue && "text-muted-foreground"
+                          )}
+                        >
+                          {dateValue ? (
+                            format(dateValue, "dd/MM/yyyy")
+                          ) : (
+                            <span className="text-muted-foreground">Sélectionner une date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateValue}
+                        onSelect={(date) => {
+                          if (date) {
+                            field.onChange(date);
+                          }
+                        }}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(23, 59, 59, 999);
+                          const minDate = new Date("1900-01-01");
+                          minDate.setHours(0, 0, 0, 0);
+                          return date > today || date < minDate;
+                        }}
+                        initialFocus
+                        captionLayout="dropdown-buttons"
+                        fromYear={1900}
+                        toYear={new Date().getFullYear()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField

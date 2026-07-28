@@ -17,6 +17,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ExportButton } from "@/components/ExportButton";
 
 const paymentSchema = z.object({
   student_id: z.string().min(1, "Sélectionnez un élève"),
@@ -177,14 +179,20 @@ const Finance = () => {
                 <CardTitle>Dernières transactions</CardTitle>
                 <CardDescription>Historique des paiements récents</CardDescription>
               </div>
-              <div className="relative w-[300px]">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+              <div className="flex gap-2 items-center">
+                <ExportButton
+                  onExportPDF={() => api.exportFinancePDF({ annee_scolaire: anneeScolaire })}
+                  onExportExcel={() => api.exportFinanceExcel({ annee_scolaire: anneeScolaire })}
                 />
+                <div className="relative w-[300px]">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>

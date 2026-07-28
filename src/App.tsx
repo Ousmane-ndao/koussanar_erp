@@ -17,6 +17,7 @@ import Documents from "./pages/Documents";
 import Grades from "./pages/Grades";
 import Teachers from "./pages/Teachers";
 import Schedules from "./pages/Schedules";
+import Semesters from "./pages/Semesters";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Dashboards spécifiques par rôle
@@ -133,6 +134,21 @@ const App = () => {
                       </div>
                     }>
                       <Schedules />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard/semesters"
+                  element={
+                    <ProtectedRoute requirePermission="manage_schedule" fallback={
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <h2 className="text-2xl font-bold mb-2">Accès refusé</h2>
+                          <p className="text-muted-foreground">Seuls les administrateurs peuvent accéder aux semestres</p>
+                        </div>
+                      </div>
+                    }>
+                      <Semesters />
                     </ProtectedRoute>
                   }
                 />

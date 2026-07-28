@@ -10,6 +10,7 @@ const ROLE_PERMISSIONS = {
     'manage_payments',     // Gérer les paiements
     'view_payments',       // Voir les paiements
     'manage_schedule',     // Ajouter un emploi du temps
+    'manage_attendance',   // Enregistrer les présences
     'send_message',        // Envoyer un message
     'download_reports',    // Télécharger les bulletins
     'manage_documents',    // Gérer tous les documents

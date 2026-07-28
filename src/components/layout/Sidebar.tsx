@@ -38,6 +38,7 @@ const allMenuItems: MenuItem[] = [
   { icon: ClipboardList, label: "Notes", path: "/dashboard/grades" },
   { icon: Calendar, label: "Présences", path: "/dashboard/attendance" },
   { icon: Clock, label: "Emplois du temps", path: "/dashboard/schedules", requirePermission: "manage_schedule" },
+  { icon: GraduationCap, label: "Semestres", path: "/dashboard/semesters", requirePermission: "manage_schedule" },
   { icon: DollarSign, label: "Finances", path: "/dashboard/finance", requireAnyPermission: ["manage_payments", "view_payments"] },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages", requirePermission: "send_message" },
   { icon: FileText, label: "Documents", path: "/dashboard/documents" },

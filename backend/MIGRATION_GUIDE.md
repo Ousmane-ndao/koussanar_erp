@@ -76,3 +76,22 @@ Après migration réussie, vous devriez voir ces tables :
 - grades
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

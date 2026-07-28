@@ -17,6 +17,10 @@ const Messages = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [type, setType] = useState<"info" | "important" | "urgence">("info");
+  const [audience, setAudience] = useState<"all" | "role" | "class" | "user">("all");
+  const [targetRole, setTargetRole] = useState<"admin" | "enseignant" | "eleve" | "parent" | "comptable" | "surveillant" | "">("");
+  const [targetClassId, setTargetClassId] = useState<string>("");
+  const [targetUserId, setTargetUserId] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -26,19 +30,44 @@ const Messages = () => {
     queryFn: () => api.getAnnouncements(),
   });
 
+  // Fetch classes and teachers for targeting
+  const { data: classes = [] } = useQuery({
+    queryKey: ["classes", "for-targeting"],
+    queryFn: () => api.getClasses(),
+  });
+  const { data: teachers = [] } = useQuery({
+    queryKey: ["teachers", "for-targeting"],
+    queryFn: () => api.getTeachers(),
+  });
+
   const publishMutation = useMutation({
     mutationFn: async () => {
-      await api.createAnnouncement({
+      const payload: any = {
         titre: title,
         contenu: content,
         type,
-      });
+      };
+      if (audience !== "all") {
+        payload.audience = audience;
+        if (audience === "role") {
+          payload.target_role = targetRole || undefined;
+        } else if (audience === "class") {
+          payload.target_class_id = targetClassId || undefined;
+        } else if (audience === "user") {
+          payload.target_user_id = targetUserId || undefined;
+        }
+      }
+      await api.createAnnouncement(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       setTitle("");
       setContent("");
       setType("info");
+      setAudience("all");
+      setTargetRole("");
+      setTargetClassId("");
+      setTargetUserId("");
       toast({
         title: "Succès",
         description: "Annonce publiée avec succès",
@@ -136,6 +165,72 @@ const Messages = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Audience</Label>
+                <Select value={audience} onValueChange={(v: any) => setAudience(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tout le monde</SelectItem>
+                    <SelectItem value="role">Par rôle</SelectItem>
+                    <SelectItem value="class">Par classe</SelectItem>
+                    <SelectItem value="user">Utilisateur spécifique</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {audience === "role" && (
+                <div className="space-y-2">
+                  <Label>Rôle cible</Label>
+                  <Select value={targetRole} onValueChange={(v: any) => setTargetRole(v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="enseignant">Enseignant</SelectItem>
+                      <SelectItem value="eleve">Élève</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                      <SelectItem value="comptable">Comptable</SelectItem>
+                      <SelectItem value="surveillant">Surveillant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {audience === "class" && (
+                <div className="space-y-2">
+                  <Label>Classe cible</Label>
+                  <Select value={targetClassId} onValueChange={(v: any) => setTargetClassId(v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.niveau} - {c.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {audience === "user" && (
+                <div className="space-y-2">
+                  <Label>Destinataire (enseignant)</Label>
+                  <Select value={targetUserId} onValueChange={(v: any) => setTargetUserId(v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map((t: any) => (
+                        <SelectItem key={t.user_id || t.id} value={(t.user_id || t.id)}>
+                          {t.prenom} {t.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="content">Contenu</Label>
                 <Textarea

@@ -11,11 +11,14 @@ import documentsRoutes from './routes/documents.js';
 import teachersRoutes from './routes/teachers.js';
 import gradesRoutes from './routes/grades.js';
 import schedulesRoutes from './routes/schedules.js';
+import feeTypesRoutes from './routes/fee-types.js';
+import semestersRoutes from './routes/semesters.js';
+import exportRoutes from './routes/export.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 // Middleware
 app.use(cors());
@@ -34,6 +37,9 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/teachers', teachersRoutes);
 app.use('/api/grades', gradesRoutes);
 app.use('/api/schedules', schedulesRoutes);
+app.use('/api/fee-types', feeTypesRoutes);
+app.use('/api/semesters', semestersRoutes);
+app.use('/api/export', exportRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

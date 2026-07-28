@@ -11,6 +11,7 @@ import { StudentForm } from "@/components/students/StudentForm";
 import { StudentsList } from "@/components/students/StudentsList";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ExportButton } from "@/components/ExportButton";
 
 const Students = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -51,19 +52,29 @@ const Students = () => {
       };
 
       if (editingStudent) {
-        await api.updateStudent(editingStudent.id, studentData);
+        return await api.updateStudent(editingStudent.id, studentData);
       } else {
-        await api.createStudent(studentData);
+        return await api.createStudent(studentData);
       }
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
       setIsDialogOpen(false);
       setEditingStudent(null);
-      toast({
-        title: "Succès",
-        description: editingStudent ? "Élève modifié avec succès" : "Élève ajouté avec succès",
-      });
+      
+      if (response?.email && response?.password && !editingStudent) {
+        // Afficher les identifiants générés
+        toast({
+          title: "Élève créé avec succès",
+          description: `Email: ${response.email} | Mot de passe: ${response.password}`,
+          duration: 10000, // Afficher pendant 10 secondes
+        });
+      } else {
+        toast({
+          title: "Succès",
+          description: editingStudent ? "Élève modifié avec succès" : "Élève ajouté avec succès",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -137,8 +148,18 @@ const Students = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Liste des élèves ({filteredStudents.length})</CardTitle>
-            <CardDescription>Recherchez et gérez les élèves inscrits</CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Liste des élèves ({filteredStudents.length})</CardTitle>
+                <CardDescription>Recherchez et gérez les élèves inscrits</CardDescription>
+              </div>
+              {canManage && (
+                <ExportButton
+                  onExportPDF={() => api.exportStudentsPDF()}
+                  onExportExcel={() => api.exportStudentsExcel()}
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 mb-4">

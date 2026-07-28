@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { ExportButton } from "@/components/ExportButton";
 
 const EleveGrades = () => {
   const { user } = useAuth();
@@ -51,11 +52,19 @@ const EleveGrades = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Mes Notes</h1>
-          <p className="text-muted-foreground mt-1">
-            Consultation de vos notes et moyennes
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Mes Notes</h1>
+            <p className="text-muted-foreground mt-1">
+              Consultation de vos notes et moyennes
+            </p>
+          </div>
+          {studentId && (
+            <ExportButton
+              onExportPDF={() => api.exportGradesPDF({ student_id: studentId })}
+              onExportExcel={() => api.exportGradesExcel({ student_id: studentId })}
+            />
+          )}
         </div>
 
         {/* Statistiques */}
@@ -165,4 +174,6 @@ const EleveGrades = () => {
 };
 
 export default EleveGrades;
+
+
 

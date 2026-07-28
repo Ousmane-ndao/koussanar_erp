@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ExportButton } from "@/components/ExportButton";
 
 type AttendanceStatus = "present" | "absent" | "retard";
 
@@ -223,7 +224,7 @@ const Attendance = () => {
                       <TableHead>Nom complet</TableHead>
                       <TableHead>Classe</TableHead>
                       <TableHead>Statut</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -268,12 +269,13 @@ const Attendance = () => {
                                 <Badge variant="secondary">Non défini</Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell>
                               {canManageAttendance ? (
-                                <div className="flex justify-end gap-2">
+                                <div className="flex gap-2 flex-wrap">
                                   <Button
                                     size="sm"
                                     variant={currentStatus === "present" ? "default" : "outline"}
+                                    className={currentStatus === "present" ? "bg-green-500 hover:bg-green-600" : ""}
                                     onClick={() => handleStatusChange(student.id, "present")}
                                     disabled={saveAttendanceMutation.isPending}
                                   >
@@ -292,7 +294,7 @@ const Attendance = () => {
                                   <Button
                                     size="sm"
                                     variant={currentStatus === "retard" ? "default" : "outline"}
-                                    className={currentStatus === "retard" ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                    className={currentStatus === "retard" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}
                                     onClick={() => handleStatusChange(student.id, "retard")}
                                     disabled={saveAttendanceMutation.isPending}
                                   >

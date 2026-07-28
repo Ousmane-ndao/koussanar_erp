@@ -190,3 +190,22 @@ Pour tester le système RBAC :
 - Les filtres de données sont appliqués automatiquement (ex: élèves voient seulement leurs notes)
 - La sidebar est mise à jour dynamiquement selon les permissions de l'utilisateur connecté
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

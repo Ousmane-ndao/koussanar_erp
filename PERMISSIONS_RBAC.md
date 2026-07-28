@@ -282,3 +282,22 @@ Pour ajouter/modifier des permissions :
 
 ✅ **Le backend fait toujours la vérification finale** - Même si le frontend masque les boutons, le backend vérifie toujours les permissions avant d'exécuter une action.
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

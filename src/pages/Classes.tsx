@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, GraduationCap, Users, BookOpen } from "lucide-react";
+import { Plus, GraduationCap, Users, BookOpen, Filter } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { ClassForm } from "@/components/classes/ClassForm";
 import { ClassesList } from "@/components/classes/ClassesList";
 import { useToast } from "@/hooks/use-toast";
+import { FILIERES } from "@/lib/constants";
 
 const Classes = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<any>(null);
+  const [selectedFiliere, setSelectedFiliere] = useState<string>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -22,12 +26,20 @@ const Classes = () => {
     queryFn: () => api.getClasses(),
   });
 
-  // Calculate statistics
+  // Filter classes by filiere
+  const filteredClasses = useMemo(() => {
+    if (selectedFiliere === "all") {
+      return classes;
+    }
+    return classes.filter((classe: any) => classe.filiere === selectedFiliere);
+  }, [classes, selectedFiliere]);
+
+  // Calculate statistics based on filtered classes
   const stats = {
-    totalClasses: classes.length,
-    totalStudents: classes.reduce((sum, c) => sum + (c._count?.students || 0), 0),
-    avgPerClass: classes.length > 0 
-      ? Math.round(classes.reduce((sum, c) => sum + (c._count?.students || 0), 0) / classes.length)
+    totalClasses: filteredClasses.length,
+    totalStudents: filteredClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0),
+    avgPerClass: filteredClasses.length > 0 
+      ? Math.round(filteredClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0) / filteredClasses.length)
       : 0,
   };
 
@@ -101,6 +113,33 @@ const Classes = () => {
           </Button>
         </div>
 
+        {/* Filter by Filiere */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-2 flex-1">
+                <Label htmlFor="filiere-filter" className="text-sm font-medium">
+                  Filière (optionnel)
+                </Label>
+                <Select value={selectedFiliere} onValueChange={setSelectedFiliere}>
+                  <SelectTrigger id="filiere-filter" className="w-full md:w-[300px]">
+                    <SelectValue placeholder="Sélectionner une filière" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les filières</SelectItem>
+                    {FILIERES.map((filiere) => (
+                      <SelectItem key={filiere} value={filiere}>
+                        {filiere}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -137,7 +176,7 @@ const Classes = () => {
         </div>
 
         <ClassesList
-          classes={classes}
+          classes={filteredClasses}
           onEdit={handleEdit}
           onDelete={(id) => deleteMutation.mutate(id)}
         />

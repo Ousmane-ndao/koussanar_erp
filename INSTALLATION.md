@@ -123,3 +123,22 @@ kous_erp/
 Pour toute question ou problème, veuillez consulter la documentation ou contacter le support technique.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -9,7 +9,7 @@ dotenv.config();
 async function resetAdmin() {
   try {
     const email = process.env.ADMIN_EMAIL || 'admin@koussanar.sn';
-    const password = process.env.ADMIN_PASSWORD || 'admin123456';
+    const password = process.env.ADMIN_PASSWORD || 'Koussanar@123';
     const nom = process.env.ADMIN_NOM || 'Admin';
     const prenom = process.env.ADMIN_PRENOM || 'Système';
 
@@ -113,5 +113,24 @@ async function resetAdmin() {
 }
 
 resetAdmin();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

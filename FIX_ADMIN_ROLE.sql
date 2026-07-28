@@ -36,3 +36,22 @@ SET statut_actif = 1
 WHERE email = 'admin@koussanar.sn';
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { ExportButton } from "@/components/ExportButton";
 
 const ElevePayments = () => {
   const { user } = useAuth();
@@ -36,11 +37,19 @@ const ElevePayments = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Mes Paiements</h1>
-          <p className="text-muted-foreground mt-1">
-            Suivi de vos paiements de scolarité
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Mes Paiements</h1>
+            <p className="text-muted-foreground mt-1">
+              Suivi de vos paiements de scolarité
+            </p>
+          </div>
+          {studentId && (
+            <ExportButton
+              onExportPDF={() => api.exportFinancePDF({ student_id: studentId })}
+              onExportExcel={() => api.exportFinanceExcel({ student_id: studentId })}
+            />
+          )}
         </div>
 
         {/* Statistiques */}
@@ -157,4 +166,6 @@ const ElevePayments = () => {
 };
 
 export default ElevePayments;
+
+
 

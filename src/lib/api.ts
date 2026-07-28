@@ -45,24 +45,26 @@ class ApiClient {
         headers,
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        // Si la réponse n'est pas du JSON
-        const text = await response.text();
-        console.error(`[API Error] ${endpoint}:`, {
-          status: response.status,
-          statusText: response.statusText,
-          body: text,
-        });
-        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+      const responseText = await response.text();
+      let data: any;
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error(`[API Error] ${endpoint}: réponse malformée`, {
+            status: response.status,
+            statusText: response.statusText,
+            body: responseText,
+          });
+          throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       if (!response.ok) {
         const error: ApiError = {
-          message: data.message || 'Une erreur est survenue',
-          errors: data.errors,
+          message: data?.message || 'Une erreur est survenue',
+          errors: data?.errors,
         };
         
         // Log l'erreur dans la console
@@ -178,7 +180,7 @@ class ApiClient {
   }
 
   async createStudent(studentData: any) {
-    return this.request<{ message: string; id: string }>('/students', {
+    return this.request<{ message: string; id: string; email?: string; password?: string; info?: string }>('/students', {
       method: 'POST',
       body: JSON.stringify(studentData),
     });
@@ -337,6 +339,10 @@ class ApiClient {
     titre: string;
     contenu: string;
     type: 'info' | 'important' | 'urgence';
+    audience?: 'all' | 'role' | 'class' | 'user';
+    target_role?: 'admin' | 'enseignant' | 'eleve' | 'parent' | 'comptable' | 'surveillant';
+    target_class_id?: string;
+    target_user_id?: string;
   }) {
     return this.request<{ message: string; id: string }>('/messages', {
       method: 'POST',
@@ -510,6 +516,372 @@ class ApiClient {
     return this.request<{ message: string }>(`/schedules/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Fee Types methods
+  async getFeeTypes(params?: { annee_scolaire?: string; actif?: boolean }) {
+    const queryParams = new URLSearchParams();
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    if (params?.actif !== undefined) queryParams.append('actif', params.actif.toString());
+    const query = queryParams.toString();
+    return this.request<any[]>(`/fee-types${query ? `?${query}` : ''}`);
+  }
+
+  async getFeeType(id: string) {
+    return this.request<any>(`/fee-types/${id}`);
+  }
+
+  async createFeeType(feeTypeData: {
+    nom: string;
+    montant: number;
+    annee_scolaire: string;
+    actif?: boolean;
+  }) {
+    return this.request<{ message: string; id: string }>('/fee-types', {
+      method: 'POST',
+      body: JSON.stringify(feeTypeData),
+    });
+  }
+
+  async updateFeeType(id: string, feeTypeData: any) {
+    return this.request<{ message: string }>(`/fee-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(feeTypeData),
+    });
+  }
+
+  async deleteFeeType(id: string) {
+    return this.request<{ message: string }>(`/fee-types/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Semesters methods
+  async getSemesters(params?: { annee_scolaire?: string; actif?: boolean }) {
+    const queryParams = new URLSearchParams();
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    if (params?.actif !== undefined) queryParams.append('actif', params.actif.toString());
+    const query = queryParams.toString();
+    return this.request<any[]>(`/semesters${query ? `?${query}` : ''}`);
+  }
+
+  async getSemestersByYear(anneeScolaire: string) {
+    return this.request<any[]>(`/semesters/annee/${anneeScolaire}`);
+  }
+
+  async getSemester(id: string) {
+    return this.request<any>(`/semesters/${id}`);
+  }
+
+  async createSemester(semesterData: {
+    nom: string;
+    numero: number;
+    annee_scolaire: string;
+    date_debut: string;
+    date_fin: string;
+    actif?: boolean;
+  }) {
+    return this.request<{ message: string; id: string }>('/semesters', {
+      method: 'POST',
+      body: JSON.stringify(semesterData),
+    });
+  }
+
+  async updateSemester(id: string, semesterData: any) {
+    return this.request<{ message: string }>(`/semesters/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(semesterData),
+    });
+  }
+
+  async deleteSemester(id: string) {
+    return this.request<{ message: string }>(`/semesters/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Export methods
+  async exportStudentsPDF() {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseURL}/export/students/pdf`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export PDF');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eleves_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportStudentsExcel() {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseURL}/export/students/excel`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export Excel');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eleves_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportGradesPDF(params?: { student_id?: string; matiere?: string; annee_scolaire?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    if (params?.matiere) queryParams.append('matiere', params.matiere);
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/grades/pdf${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export PDF');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `notes_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportGradesExcel(params?: { student_id?: string; matiere?: string; annee_scolaire?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    if (params?.matiere) queryParams.append('matiere', params.matiere);
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/grades/excel${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export Excel');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `notes_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportAttendancePDF(params?: { date?: string; student_id?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.date) queryParams.append('date', params.date);
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/attendance/pdf${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export PDF');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `presences_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportAttendanceExcel(params?: { date?: string; student_id?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.date) queryParams.append('date', params.date);
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/attendance/excel${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export Excel');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `presences_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportFinancePDF(params?: { student_id?: string; annee_scolaire?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/finance/pdf${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export PDF');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rapport_financier_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportFinanceExcel(params?: { student_id?: string; annee_scolaire?: string }) {
+    const token = this.getToken();
+    const queryParams = new URLSearchParams();
+    if (params?.student_id) queryParams.append('student_id', params.student_id);
+    if (params?.annee_scolaire) queryParams.append('annee_scolaire', params.annee_scolaire);
+    const query = queryParams.toString();
+
+    const response = await fetch(`${this.baseURL}/export/finance/excel${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export Excel');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rapport_financier_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  // Export users and roles (Admin only)
+  async exportUsersRolesPDF() {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseURL}/export/users-roles/pdf`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export PDF');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `utilisateurs_roles_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  async exportUsersRolesExcel() {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseURL}/export/users-roles/excel`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Erreur lors de l\'export Excel');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `utilisateurs_roles_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 }
 

@@ -6,11 +6,15 @@ import { api } from "@/lib/api";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ExportButton";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const AdminDashboard = () => {
   const today = format(new Date(), "yyyy-MM-dd");
   const currentYear = new Date().getFullYear();
   const anneeScolaire = `${currentYear}-${currentYear + 1}`;
+  const { hasPermission } = usePermissions();
+  const canManageUsers = hasPermission('manage_users');
 
   const { data: students = [] } = useQuery({
     queryKey: ["students"],
@@ -211,10 +215,33 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Export Users and Roles */}
+        {canManageUsers && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Export des utilisateurs et rôles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center">
+                <ExportButton
+                  onExportPDF={() => api.exportUsersRolesPDF()}
+                  onExportExcel={() => api.exportUsersRolesExcel()}
+                  label="Exporter les utilisateurs et rôles"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center mt-4">
+                Exportez la liste complète de tous les utilisateurs avec leurs rôles et permissions assignés
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );
 };
 
 export default AdminDashboard;
+
+
 

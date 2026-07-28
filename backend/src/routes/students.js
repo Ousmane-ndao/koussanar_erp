@@ -6,6 +6,7 @@ import { generateUUID } from '../utils/uuid.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { logError } from '../utils/logger.js';
+import { generateUniqueEmail, generatePassword } from '../utils/generate-email.js';
 
 const router = express.Router();
 
@@ -174,8 +175,13 @@ router.post('/', authenticateToken, requirePermission('manage_users'), [
 
     // Create profile first
     const userId = generateUUID();
-    const email = `${matricule}@lycee-koussanar.edu`;
-    const password = await bcrypt.hash(matricule, 10); // Default password is matricule
+    
+    // Générer l'email automatiquement selon le format LKSNR
+    const email = await generateUniqueEmail(pool, prenom, nom, 5);
+    
+    // Générer un mot de passe unique de 6 caractères
+    const passwordPlain = generatePassword(6);
+    const password = await bcrypt.hash(passwordPlain, 10);
 
     await pool.execute(
       'INSERT INTO profiles (id, email, password, nom, prenom, telephone, adresse) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -198,7 +204,13 @@ router.post('/', authenticateToken, requirePermission('manage_users'), [
         sexe, classe_id || null, annee_scolaire, statut_inscription || 'actif']
     );
 
-    res.status(201).json({ message: 'Élève créé avec succès', id: studentId });
+    res.status(201).json({ 
+      message: 'Élève créé avec succès',
+      id: studentId,
+      email: email,
+      password: passwordPlain, // Retourner le mot de passe en clair pour l'affichage
+      info: 'Email et mot de passe générés automatiquement'
+    });
   } catch (error) {
     logError('STUDENTS - Create', error, req);
     res.status(500).json({ 

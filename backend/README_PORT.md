@@ -53,3 +53,5 @@ Pour éviter ce problème à l'avenir :
 - Utilisez toujours `Ctrl+C` pour arrêter le serveur proprement
 - Ou utilisez le script `stop-server.bat` avant de relancer
 
+
+

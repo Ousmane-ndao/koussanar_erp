@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { NIVEAUX, FILIERES } from "@/lib/constants";
 
 const classSchema = z.object({
   nom: z.string().trim().min(1, "Le nom de la classe est requis").max(100, "Le nom doit faire moins de 100 caractères"),
   niveau: z.string().trim().min(1, "Le niveau est requis").max(50, "Le niveau doit faire moins de 50 caractères"),
-  filiere: z.string().trim().max(50, "La filière doit faire moins de 50 caractères").optional(),
+  filiere: z.string().trim().max(100, "La filière doit faire moins de 100 caractères").optional(),
   effectif_max: z.number().int().min(1, "L'effectif doit être au moins 1").max(100, "L'effectif maximum est 100").default(40),
 });
 
@@ -20,24 +21,6 @@ interface ClassFormProps {
   initialData?: Partial<ClassFormValues>;
   isLoading?: boolean;
 }
-
-const NIVEAUX = [
-  "6ème",
-  "5ème",
-  "4ème",
-  "3ème",
-  "2nde",
-  "1ère",
-  "Terminale",
-];
-
-const FILIERES = [
-  "Général",
-  "S (Scientifique)",
-  "L (Littéraire)",
-  "STEG (Sciences et Technologies)",
-  "Autre",
-];
 
 export const ClassForm = ({ onSubmit, initialData, isLoading }: ClassFormProps) => {
   const form = useForm<ClassFormValues>({

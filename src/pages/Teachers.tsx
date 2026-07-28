@@ -49,20 +49,30 @@ const Teachers = () => {
   const saveTeacherMutation = useMutation({
     mutationFn: async (values: TeacherFormValues) => {
       if (editingTeacher) {
-        await api.updateTeacher(editingTeacher.id, values);
+        return await api.updateTeacher(editingTeacher.id, values);
       } else {
-        await api.createTeacher(values);
+        return await api.createTeacher(values);
       }
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["teachers"] });
       setIsDialogOpen(false);
       setEditingTeacher(null);
       form.reset();
-      toast({
-        title: "Succès",
-        description: editingTeacher ? "Enseignant modifié avec succès" : "Enseignant ajouté avec succès",
-      });
+      
+      if (response?.email && response?.password && !editingTeacher) {
+        // Afficher les identifiants générés
+        toast({
+          title: "Enseignant créé avec succès",
+          description: `Email: ${response.email} | Mot de passe: ${response.password}`,
+          duration: 10000, // Afficher pendant 10 secondes
+        });
+      } else {
+        toast({
+          title: "Succès",
+          description: editingTeacher ? "Enseignant modifié avec succès" : "Enseignant ajouté avec succès",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -397,5 +407,7 @@ const Teachers = () => {
 };
 
 export default Teachers;
+
+
 
 

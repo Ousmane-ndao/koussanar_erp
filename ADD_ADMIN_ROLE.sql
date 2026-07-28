@@ -19,6 +19,22 @@ SELECT
     p.statut_actif
 FROM profiles p
 LEFT JOIN user_roles ur ON p.id = ur.user_id
-WHERE p.email = 'admin@koussanar.sn';
+WHERE p.email = '%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

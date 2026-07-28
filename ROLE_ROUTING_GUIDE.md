@@ -161,3 +161,22 @@ Pour tester le système :
    - Vous devriez être redirigé vers `/comptable/dashboard`
    - Le menu devrait afficher seulement les fonctionnalités comptable
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -50,7 +50,7 @@ async function verifyAdmin() {
     if (roles.length === 0) {
       console.log('   ❌ AUCUN RÔLE ASSIGNÉ !');
       console.log('   ⚠️  Vous devez ajouter le rôle "admin" dans la table user_roles\n');
-      
+
       console.log('💡 Solution: Exécutez cette commande SQL:');
       console.log(`   INSERT INTO user_roles (id, user_id, role) VALUES (UUID(), '${profile.id}', 'admin');\n`);
     } else {
@@ -87,5 +87,24 @@ async function verifyAdmin() {
 }
 
 verifyAdmin();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

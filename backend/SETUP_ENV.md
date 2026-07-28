@@ -94,3 +94,22 @@ Pour vérifier que votre fichier `.env` est bien configuré, le script `check-db
 - ✓ Si la connexion fonctionne
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

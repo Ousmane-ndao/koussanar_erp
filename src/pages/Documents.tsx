@@ -21,6 +21,8 @@ const Documents = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [documentName, setDocumentName] = useState("");
   const [category, setCategory] = useState<string>("autre");
+  const [visibility, setVisibility] = useState<"public" | "classe" | "prive">("public");
+  const [targetClassId, setTargetClassId] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -29,6 +31,9 @@ const Documents = () => {
     { value: "emplois_temps", label: "Emplois du temps" },
     { value: "circulaires", label: "Circulaires" },
     { value: "bulletins", label: "Bulletins" },
+    { value: "cours", label: "Cours" },
+    { value: "exercice", label: "Exercices" },
+    { value: "video", label: "Vidéos" },
     { value: "autre", label: "Autre" },
   ];
 
@@ -36,6 +41,10 @@ const Documents = () => {
   const { data: documents = [] } = useQuery({
     queryKey: ["documents"],
     queryFn: () => api.getDocuments(),
+  });
+  const { data: classes = [] } = useQuery({
+    queryKey: ["classes", "for-documents"],
+    queryFn: () => api.getClasses(),
   });
 
   const uploadMutation = useMutation({
@@ -48,6 +57,10 @@ const Documents = () => {
       formData.append('file', uploadFile);
       formData.append('nom', documentName);
       formData.append('categorie', category);
+      formData.append('visibilite', visibility);
+      if (visibility === 'classe' && targetClassId) {
+        formData.append('classe_id', targetClassId);
+      }
 
       await api.uploadDocument(formData);
     },
@@ -57,6 +70,8 @@ const Documents = () => {
       setUploadFile(null);
       setDocumentName("");
       setCategory("autre");
+      setVisibility("public");
+      setTargetClassId("");
       toast({
         title: "Succès",
         description: "Document téléversé avec succès",
@@ -93,7 +108,7 @@ const Documents = () => {
 
   const filteredDocuments = documents.filter((doc: any) => {
     const matchesCategory = selectedCategory === "all" || doc.categorie === selectedCategory;
-    const matchesSearch = searchQuery === "" || 
+    const matchesSearch = searchQuery === "" ||
       doc.nom.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
@@ -122,20 +137,22 @@ const Documents = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Gestion Documentaire</h1>
-            <p className="text-muted-foreground">Stockez et organisez vos documents administratifs</p>
+      <div className="space-y-6 px-4">
+        <div className="space-y-6 max-w-[900px] mx-auto">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Gestion Documentaire</h1>
+              <p className="text-muted-foreground">Stockez et organisez vos documents administratifs</p>
+            </div>
+            <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+              <Upload className="w-4 h-4" />
+              Téléverser un document
+            </Button>
           </div>
-          <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
-            <Upload className="w-4 h-4" />
-            Téléverser un document
-          </Button>
-        </div>
+</div>
 
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {categories.map((cat) => {
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+            {categories.map((cat) => {
             const count = getCategoryCount(cat.value);
             return (
               <Card
@@ -186,7 +203,7 @@ const Documents = () => {
                 <p>Aucun document trouvé</p>
               </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="rounded-md border max-h-[600px] overflow-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -221,7 +238,7 @@ const Documents = () => {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
-                                  const url = doc.url.startsWith('/') 
+                                  const url = doc.url.startsWith('/')
                                     ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${doc.url}`
                                     : doc.url;
                                   window.open(url, "_blank");
@@ -262,7 +279,7 @@ const Documents = () => {
                 id="file"
                 type="file"
                 onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png,.mp4,.webm,.avi,.mov,.ppt,.pptx"
               />
               {uploadFile && (
                 <p className="text-sm text-muted-foreground">
@@ -270,6 +287,36 @@ const Documents = () => {
                 </p>
               )}
             </div>
+            <div className="space-y-2">
+              <Label>Visibilité</Label>
+              <Select value={visibility} onValueChange={setVisibility as any}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Tout l'établissement</SelectItem>
+                  <SelectItem value="classe">Seulement une classe</SelectItem>
+                  <SelectItem value="prive">Privé (moi uniquement)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {visibility === "classe" && (
+              <div className="space-y-2">
+                <Label>Classe cible</Label>
+                <Select value={targetClassId} onValueChange={setTargetClassId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.niveau} - {c.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="documentName">Nom du document</Label>
               <Input
