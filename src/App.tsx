@@ -32,6 +32,7 @@ import EleveGrades from "./pages/eleve/EleveGrades";
 import ElevePayments from "./pages/eleve/ElevePayments";
 // Pages spécifiques comptable
 import ComptableReports from "./pages/comptable/ComptableReports";
+import Bulletins from "@/pages/Bulletins";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,7 +59,7 @@ const App = () => {
                 <Route path="/auth" element={<Auth />} />
                 {/* Dashboard général (fallback) */}
                 <Route path="/dashboard" element={<Dashboard />} />
-                
+
                 {/* Dashboards spécifiques par rôle */}
                 <Route path="/admin/dashboard" element={
                   <ProtectedRoute requireRole="admin">
@@ -75,6 +76,7 @@ const App = () => {
                     <ProfesseurDashboard />
                   </ProtectedRoute>
                 } />
+
                 <Route path="/eleve/dashboard" element={
                   <ProtectedRoute requireRole="eleve">
                     <EleveDashboard />
@@ -105,14 +107,14 @@ const App = () => {
                     <ComptableReports />
                   </ProtectedRoute>
                 } />
-                
+
                 {/* Routes admin (aliases vers les routes existantes) */}
                 <Route path="/admin/*" element={
                   <ProtectedRoute requireRole="admin">
                     <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 } />
-                
+
                 {/* Routes existantes (compatibilité) */}
                 <Route path="/dashboard/students" element={<Students />} />
                 <Route path="/dashboard/classes" element={<Classes />} />

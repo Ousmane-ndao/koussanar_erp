@@ -1,17 +1,18 @@
 import { Link, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
-  BookOpen, 
-  Calendar, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  Calendar,
+  DollarSign,
   MessageSquare,
   FileText,
   GraduationCap,
   ClipboardList,
   UserCircle,
   Clock,
-  Shield
+  Shield,
+  FileSpreadsheet, // Nouvelle icône pour les bulletins
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -30,12 +31,13 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   // Dashboard (adaptatif selon le rôle)
   { icon: LayoutDashboard, label: "Tableau de bord", path: "/dashboard" },
-  
+
   // Menu Admin
   { icon: Users, label: "Élèves", path: "/dashboard/students", requirePermission: "manage_users" },
   { icon: UserCircle, label: "Enseignants", path: "/dashboard/teachers", requirePermission: "manage_users" },
   { icon: BookOpen, label: "Classes", path: "/dashboard/classes" },
   { icon: ClipboardList, label: "Notes", path: "/dashboard/grades" },
+  { icon: FileSpreadsheet, label: "Bulletins", path: "/bulletins", requirePermission: "manage_grades" }, // ✅ NOUVEAU
   { icon: Calendar, label: "Présences", path: "/dashboard/attendance" },
   { icon: Clock, label: "Emplois du temps", path: "/dashboard/schedules", requirePermission: "manage_schedule" },
   { icon: GraduationCap, label: "Semestres", path: "/dashboard/semesters", requirePermission: "manage_schedule" },
@@ -43,15 +45,15 @@ const allMenuItems: MenuItem[] = [
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages", requirePermission: "send_message" },
   { icon: FileText, label: "Documents", path: "/dashboard/documents" },
   { icon: Shield, label: "Super Admin", path: "/admin/super", requireAnyRole: ["admin", "super_admin", "superadmin"] },
-  
+
   // Menu spécifique Professeur
   { icon: BookOpen, label: "Mes classes", path: "/dashboard/classes", requireRole: "enseignant" },
-  
+
   // Menu spécifique Élève
   { icon: Calendar, label: "Mon emploi du temps", path: "/eleve/schedule", requireRole: "eleve" },
   { icon: ClipboardList, label: "Mes notes", path: "/eleve/grades", requireRole: "eleve" },
   { icon: DollarSign, label: "Mes paiements", path: "/eleve/payments", requireRole: "eleve" },
-  
+
   // Menu spécifique Comptable
   { icon: DollarSign, label: "Gérer les paiements", path: "/dashboard/finance", requireRole: "comptable" },
   { icon: FileText, label: "Rapports", path: "/comptable/reports", requireRole: "comptable" },
@@ -106,13 +108,13 @@ export const Sidebar = () => {
           </div>
         </div>
       </div>
-      
+
       <nav className="p-4">
         <ul className="space-y-2">
           {processedMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
-            
+
             return (
               <li key={item.path}>
                 <Link

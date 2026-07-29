@@ -15,6 +15,7 @@ import feeTypesRoutes from './routes/fee-types.js';
 import semestersRoutes from './routes/semesters.js';
 import exportRoutes from './routes/export.js';
 import announcementsRoutes from './routes/announcements.js'; // 👈 NOUVEAU
+import bulletinsRoutes from './routes/bulletins.js';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use('/api/fee-types', feeTypesRoutes);
 app.use('/api/semesters', semestersRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/announcements', announcementsRoutes); // 👈 NOUVEAU
+app.use('/api/bulletins', bulletinsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
