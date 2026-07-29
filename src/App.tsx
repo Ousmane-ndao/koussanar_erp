@@ -18,7 +18,7 @@ import Grades from "./pages/Grades";
 import Teachers from "./pages/Teachers";
 import Schedules from "./pages/Schedules";
 import Semesters from "./pages/Semesters";
-import Bulletins from "@/pages/Bulletins";
+import Bulletins from "@/pages/Bulletins"; // ✅ Import
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Dashboards spécifiques par rôle
@@ -39,7 +39,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     },
   },
 });
@@ -57,10 +57,8 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
-                {/* Dashboard général (fallback) */}
                 <Route path="/dashboard" element={<Dashboard />} />
 
-                {/* Dashboards spécifiques par rôle */}
                 <Route path="/admin/dashboard" element={
                   <ProtectedRoute requireRole="admin">
                     <AdminDashboard />
@@ -108,21 +106,19 @@ const App = () => {
                   </ProtectedRoute>
                 } />
 
-                {/* Routes admin (aliases vers les routes existantes) */}
                 <Route path="/admin/*" element={
                   <ProtectedRoute requireRole="admin">
                     <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 } />
 
-                {/* ✅ Route pour les bulletins (réservée aux administrateurs) */}
+                {/* ✅ Route bulletins (admin uniquement) */}
                 <Route path="/bulletins" element={
                   <ProtectedRoute requireRole="admin">
                     <Bulletins />
                   </ProtectedRoute>
                 } />
 
-                {/* Routes existantes (compatibilité) */}
                 <Route path="/dashboard/students" element={<Students />} />
                 <Route path="/dashboard/classes" element={<Classes />} />
                 <Route path="/dashboard/attendance" element={<Attendance />} />
@@ -161,7 +157,6 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>

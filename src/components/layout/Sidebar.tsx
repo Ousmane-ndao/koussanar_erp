@@ -26,11 +26,10 @@ interface MenuItem {
   requirePermission?: string;
   requireAnyPermission?: string[];
   requireRole?: string;
-  requireAnyRole?: string[];
 }
 
 const allMenuItems: MenuItem[] = [
-  // Dashboard (adaptatif selon le rôle)
+  // Dashboard
   { icon: LayoutDashboard, label: "Tableau de bord", path: "/dashboard" },
 
   // Menu Admin
@@ -38,7 +37,8 @@ const allMenuItems: MenuItem[] = [
   { icon: UserCircle, label: "Enseignants", path: "/dashboard/teachers", requirePermission: "manage_users" },
   { icon: BookOpen, label: "Classes", path: "/dashboard/classes" },
   { icon: ClipboardList, label: "Notes", path: "/dashboard/grades" },
-  { icon: FileSpreadsheet, label: "Bulletins", path: "/bulletins", requireRole: "admin" }, // ✅ Seuls les admins
+  // ✅ Bulletins réservé aux admins
+  { icon: FileSpreadsheet, label: "Bulletins", path: "/bulletins", requireRole: "admin" },
   { icon: Calendar, label: "Présences", path: "/dashboard/attendance" },
   { icon: Clock, label: "Emplois du temps", path: "/dashboard/schedules", requirePermission: "manage_schedule" },
   { icon: GraduationCap, label: "Semestres", path: "/dashboard/semesters", requirePermission: "manage_schedule" },
@@ -47,15 +47,15 @@ const allMenuItems: MenuItem[] = [
   { icon: FileText, label: "Documents", path: "/dashboard/documents" },
   { icon: Shield, label: "Super Admin", path: "/admin/super", requireAnyRole: ["admin", "super_admin", "superadmin"] },
 
-  // Menu spécifique Professeur
+  // Professeur
   { icon: BookOpen, label: "Mes classes", path: "/dashboard/classes", requireRole: "enseignant" },
 
-  // Menu spécifique Élève
+  // Élève
   { icon: Calendar, label: "Mon emploi du temps", path: "/eleve/schedule", requireRole: "eleve" },
   { icon: ClipboardList, label: "Mes notes", path: "/eleve/grades", requireRole: "eleve" },
   { icon: DollarSign, label: "Mes paiements", path: "/eleve/payments", requireRole: "eleve" },
 
-  // Menu spécifique Comptable
+  // Comptable
   { icon: DollarSign, label: "Gérer les paiements", path: "/dashboard/finance", requireRole: "comptable" },
   { icon: FileText, label: "Rapports", path: "/comptable/reports", requireRole: "comptable" },
 ];
@@ -65,31 +65,17 @@ export const Sidebar = () => {
   const { hasPermission, hasAnyPermission, hasRole, hasAnyRole } = usePermissions();
   const { user } = useAuth();
 
-  // Obtenir la route du dashboard selon le rôle
   const dashboardRoute = user ? getDashboardRoute(user.roles || []) : "/dashboard";
 
-  // Filtrer les éléments du menu selon les permissions et rôles
   const menuItems = allMenuItems.filter((item) => {
-    // Vérifier les rôles
-    if (item.requireRole && !hasRole(item.requireRole)) {
-      return false;
-    }
-    if (item.requireAnyRole && !hasAnyRole(...item.requireAnyRole)) {
-      return false;
-    }
-    // Vérifier les permissions
-    if (item.requirePermission && !hasPermission(item.requirePermission)) {
-      return false;
-    }
-    if (item.requireAnyPermission && !hasAnyPermission(...item.requireAnyPermission)) {
-      return false;
-    }
+    if (item.requireRole && !hasRole(item.requireRole)) return false;
+    if (item.requireAnyRole && !hasAnyRole(...item.requireAnyRole)) return false;
+    if (item.requirePermission && !hasPermission(item.requirePermission)) return false;
+    if (item.requireAnyPermission && !hasAnyPermission(...item.requireAnyPermission)) return false;
     return true;
   });
 
-  // Remplacer les routes dashboard génériques par la route spécifique au rôle
   const processedMenuItems = menuItems.map((item) => {
-    // Si c'est un élément "Tableau de bord" qui n'est pas spécifique à un rôle, le remplacer
     if (item.label === "Tableau de bord" && item.path === "/dashboard") {
       return { ...item, path: dashboardRoute };
     }

@@ -14,8 +14,8 @@ import schedulesRoutes from './routes/schedules.js';
 import feeTypesRoutes from './routes/fee-types.js';
 import semestersRoutes from './routes/semesters.js';
 import exportRoutes from './routes/export.js';
-import announcementsRoutes from './routes/announcements.js'; // 👈 NOUVEAU
-import bulletinsRoutes from './routes/bulletins.js';
+import announcementsRoutes from './routes/announcements.js';
+import bulletinsRoutes from './routes/bulletins.js'; // 👈 NOUVEAU
 
 dotenv.config();
 
@@ -42,8 +42,8 @@ app.use('/api/schedules', schedulesRoutes);
 app.use('/api/fee-types', feeTypesRoutes);
 app.use('/api/semesters', semestersRoutes);
 app.use('/api/export', exportRoutes);
-app.use('/api/announcements', announcementsRoutes); // 👈 NOUVEAU
-app.use('/api/bulletins', bulletinsRoutes);
+app.use('/api/announcements', announcementsRoutes);
+app.use('/api/bulletins', bulletinsRoutes); // 👈 NOUVEAU
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -52,7 +52,6 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  // Log complet de l'erreur
   console.error('='.repeat(50));
   console.error('[ERROR]', new Date().toISOString());
   console.error('Method:', req.method);
