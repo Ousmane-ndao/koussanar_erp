@@ -7,15 +7,12 @@ import { requirePermission } from '../middleware/rbac.js';
 
 const router = express.Router();
 
-// Get all semesters
+// Get all semesters (with optional filters)
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { annee_scolaire, actif } = req.query;
 
-        let query = `
-      SELECT * FROM semesters
-      WHERE 1=1
-    `;
+        let query = 'SELECT * FROM semesters WHERE 1=1';
         const params = [];
 
         if (annee_scolaire) {
@@ -24,24 +21,23 @@ router.get('/', authenticateToken, async (req, res) => {
         }
 
         if (actif !== undefined) {
-            // Gérer les deux formats possibles : actif (BOOLEAN) ou statut (ENUM)
+            // Utiliser uniquement la colonne actif (BOOLEAN)
             const actifValue = actif === 'true' || actif === '1';
-            query += ' AND (actif = ? OR statut = ?)';
-            params.push(actifValue, actifValue ? 'actif' : 'ferme');
+            query += ' AND actif = ?';
+            params.push(actifValue);
         }
 
         query += ' ORDER BY annee_scolaire DESC, numero ASC';
 
         const [semesters] = await pool.execute(query, params);
 
-        // Normaliser les données pour le frontend
-        const normalizedSemesters = semesters.map(s => ({
+        // Normalisation : actif est un booléen
+        const normalized = semesters.map(s => ({
             ...s,
-            actif: s.actif !== undefined ? s.actif : (s.statut === 'actif'),
-            statut: s.statut || (s.actif ? 'actif' : 'ferme')
+            actif: !!s.actif,
         }));
 
-        res.json(normalizedSemesters);
+        res.json(normalized);
     } catch (error) {
         console.error('Get semesters error:', error);
         res.status(500).json({ message: 'Erreur lors de la récupération des semestres' });
@@ -60,44 +56,45 @@ router.get('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Semestre non trouvé' });
         }
 
-        res.json(semesters[0]);
+        res.json({
+            ...semesters[0],
+            actif: !!semesters[0].actif,
+        });
     } catch (error) {
         console.error('Get semester error:', error);
         res.status(500).json({ message: 'Erreur lors de la récupération du semestre' });
     }
 });
 
-// Get semesters by year
+// Get semesters by year (only active ones)
 router.get('/annee/:annee_scolaire', authenticateToken, async (req, res) => {
     try {
         const { annee_scolaire } = req.params;
-        // Gérer les deux formats : actif (BOOLEAN) ou statut (ENUM)
         const [semesters] = await pool.execute(
-            'SELECT * FROM semesters WHERE annee_scolaire = ? AND (actif = TRUE OR statut = \'actif\') ORDER BY numero ASC',
+            'SELECT * FROM semesters WHERE annee_scolaire = ? AND actif = TRUE ORDER BY numero ASC',
             [annee_scolaire]
         );
 
-        // Normaliser les données
-        const normalizedSemesters = semesters.map(s => ({
+        const normalized = semesters.map(s => ({
             ...s,
-            actif: s.actif !== undefined ? s.actif : (s.statut === 'actif'),
-            statut: s.statut || (s.actif ? 'actif' : 'ferme')
+            actif: !!s.actif,
         }));
 
-        res.json(normalizedSemesters);
+        res.json(normalized);
     } catch (error) {
         console.error('Get semesters by year error:', error);
         res.status(500).json({ message: 'Erreur lors de la récupération des semestres' });
     }
 });
 
-// Create semester
+// Create semester (admin only)
 router.post('/', authenticateToken, requirePermission('manage_schedule'), [
     body('nom').trim().notEmpty().withMessage('Le nom est requis'),
     body('numero').isInt({ min: 1, max: 3 }).withMessage('Le numéro doit être entre 1 et 3'),
     body('annee_scolaire').trim().notEmpty().withMessage('L\'année scolaire est requise'),
     body('date_debut').isISO8601().withMessage('La date de début doit être valide'),
     body('date_fin').isISO8601().withMessage('La date de fin doit être valide'),
+    body('actif').optional().isBoolean(),
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -118,31 +115,13 @@ router.post('/', authenticateToken, requirePermission('manage_schedule'), [
         }
 
         const id = generateUUID();
+        const actifValue = actif !== undefined ? actif : true;
 
-        // Vérifier si la table utilise 'actif' ou 'statut'
-        const [columns] = await pool.execute('DESCRIBE semesters');
-        const hasActifColumn = columns.some(col => col.Field === 'actif');
-        const hasStatutColumn = columns.some(col => col.Field === 'statut');
-
-        if (hasActifColumn) {
-            await pool.execute(
-                `INSERT INTO semesters (id, nom, numero, annee_scolaire, date_debut, date_fin, actif) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, nom, numero, annee_scolaire, date_debut, date_fin, actif !== undefined ? actif : true]
-            );
-        } else if (hasStatutColumn) {
-            await pool.execute(
-                `INSERT INTO semesters (id, nom, numero, annee_scolaire, date_debut, date_fin, statut) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, nom, numero, annee_scolaire, date_debut, date_fin, actif !== undefined && actif ? 'actif' : 'ferme']
-            );
-        } else {
-            await pool.execute(
-                `INSERT INTO semesters (id, nom, numero, annee_scolaire, date_debut, date_fin) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-                [id, nom, numero, annee_scolaire, date_debut, date_fin]
-            );
-        }
+        await pool.execute(
+            `INSERT INTO semesters (id, nom, numero, annee_scolaire, date_debut, date_fin, actif)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [id, nom, numero, annee_scolaire, date_debut, date_fin, actifValue]
+        );
 
         res.status(201).json({ message: 'Semestre créé avec succès', id });
     } catch (error) {
@@ -194,70 +173,26 @@ router.put('/:id', authenticateToken, requirePermission('manage_schedule'), [
             }
         }
 
-        // Vérifier si la table utilise 'actif' ou 'statut'
-        const [columns] = await pool.execute('DESCRIBE semesters');
-        const hasActifColumn = columns.some(col => col.Field === 'actif');
-        const hasStatutColumn = columns.some(col => col.Field === 'statut');
-
-        if (hasActifColumn) {
-            await pool.execute(
-                `UPDATE semesters SET 
-          nom = COALESCE(?, nom),
-          numero = COALESCE(?, numero),
-          annee_scolaire = COALESCE(?, annee_scolaire),
-          date_debut = COALESCE(?, date_debut),
-          date_fin = COALESCE(?, date_fin),
-          actif = COALESCE(?, actif)
-         WHERE id = ?`,
-                [
-                    nom || null,
-                    numero || null,
-                    annee_scolaire || null,
-                    date_debut || null,
-                    date_fin || null,
-                    actif !== undefined ? actif : null,
-                    req.params.id
-                ]
-            );
-        } else if (hasStatutColumn) {
-            await pool.execute(
-                `UPDATE semesters SET 
-          nom = COALESCE(?, nom),
-          numero = COALESCE(?, numero),
-          annee_scolaire = COALESCE(?, annee_scolaire),
-          date_debut = COALESCE(?, date_debut),
-          date_fin = COALESCE(?, date_fin),
-          statut = COALESCE(?, statut)
-         WHERE id = ?`,
-                [
-                    nom || null,
-                    numero || null,
-                    annee_scolaire || null,
-                    date_debut || null,
-                    date_fin || null,
-                    actif !== undefined ? (actif ? 'actif' : 'ferme') : null,
-                    req.params.id
-                ]
-            );
-        } else {
-            await pool.execute(
-                `UPDATE semesters SET 
-          nom = COALESCE(?, nom),
-          numero = COALESCE(?, numero),
-          annee_scolaire = COALESCE(?, annee_scolaire),
-          date_debut = COALESCE(?, date_debut),
-          date_fin = COALESCE(?, date_fin)
-         WHERE id = ?`,
-                [
-                    nom || null,
-                    numero || null,
-                    annee_scolaire || null,
-                    date_debut || null,
-                    date_fin || null,
-                    req.params.id
-                ]
-            );
-        }
+        // Update using COALESCE, only actif column
+        await pool.execute(
+            `UPDATE semesters SET
+                nom = COALESCE(?, nom),
+                numero = COALESCE(?, numero),
+                annee_scolaire = COALESCE(?, annee_scolaire),
+                date_debut = COALESCE(?, date_debut),
+                date_fin = COALESCE(?, date_fin),
+                actif = COALESCE(?, actif)
+             WHERE id = ?`,
+            [
+                nom || null,
+                numero || null,
+                annee_scolaire || null,
+                date_debut || null,
+                date_fin || null,
+                actif !== undefined ? actif : null,
+                req.params.id
+            ]
+        );
 
         res.json({ message: 'Semestre modifié avec succès' });
     } catch (error) {
@@ -266,7 +201,7 @@ router.put('/:id', authenticateToken, requirePermission('manage_schedule'), [
     }
 });
 
-// Delete semester
+// Delete semester (soft delete if used in grades)
 router.delete('/:id', authenticateToken, requirePermission('manage_schedule'), async (req, res) => {
     try {
         // Check if semester exists
@@ -279,23 +214,15 @@ router.delete('/:id', authenticateToken, requirePermission('manage_schedule'), a
             return res.status(404).json({ message: 'Semestre non trouvé' });
         }
 
-        // Check if semester is used in grades
+        // Check if semester is used in grades (column name: semestre_id)
         const [grades] = await pool.execute(
-            'SELECT COUNT(*) as count FROM grades WHERE semester_id = ?',
+            'SELECT COUNT(*) as count FROM grades WHERE semestre_id = ?',
             [req.params.id]
         );
 
         if (grades[0].count > 0) {
-            // Soft delete: set actif to false or statut to 'ferme' instead of deleting
-            const [columns] = await pool.execute('DESCRIBE semesters');
-            const hasActifColumn = columns.some(col => col.Field === 'actif');
-            const hasStatutColumn = columns.some(col => col.Field === 'statut');
-
-            if (hasActifColumn) {
-                await pool.execute('UPDATE semesters SET actif = FALSE WHERE id = ?', [req.params.id]);
-            } else if (hasStatutColumn) {
-                await pool.execute('UPDATE semesters SET statut = \'ferme\' WHERE id = ?', [req.params.id]);
-            }
+            // Soft delete: set actif to false
+            await pool.execute('UPDATE semesters SET actif = FALSE WHERE id = ?', [req.params.id]);
             return res.json({ message: 'Semestre désactivé (utilisé dans des notes)' });
         }
 
