@@ -17,19 +17,16 @@ const Bulletins = () => {
   const [selectedEleve, setSelectedEleve] = useState<string>("");
   const [bulletinData, setBulletinData] = useState<any>(null);
 
-  // Récupérer les classes
   const { data: classes = [] } = useQuery({
     queryKey: ["classes"],
     queryFn: () => api.getClasses(),
   });
 
-  // Récupérer les semestres
   const { data: semestres = [] } = useQuery({
     queryKey: ["semesters"],
     queryFn: () => api.getSemesters({ actif: true }),
   });
 
-  // Récupérer les élèves de la classe sélectionnée
   const { data: students = [] } = useQuery({
     queryKey: ["students", selectedClasse],
     queryFn: () => api.getStudents(),
