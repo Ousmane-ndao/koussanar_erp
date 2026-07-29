@@ -24,28 +24,179 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-// Liste des matières avec leurs coefficients
-const MATIERES: Array<{ nom: string; coefficient: number }> = [
-  { nom: "Mathématiques", coefficient: 3 },
-  { nom: "Français", coefficient: 3 },
-  { nom: "Anglais", coefficient: 2 },
-  { nom: "Histoire-Géographie", coefficient: 2 },
-  { nom: "Sciences Physiques", coefficient: 3 },
-  { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
-  { nom: "Philosophie", coefficient: 2 },
-  { nom: "Économie", coefficient: 2 },
-  { nom: "Comptabilité", coefficient: 3 },
-  { nom: "Gestion", coefficient: 2 },
-  { nom: "Informatique", coefficient: 2 },
-  { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
-  { nom: "Arts Plastiques", coefficient: 1 },
-  { nom: "Musique", coefficient: 1 },
-  { nom: "Espagnol", coefficient: 2 },
-  { nom: "Allemand", coefficient: 2 },
-  { nom: "Arabe", coefficient: 2 },
-  { nom: "Sciences Islamiques", coefficient: 1 },
-  { nom: "Éducation Civique", coefficient: 1 },
-];
+// ============================================================
+// Programme scolaire sénégalais - Matières par niveau
+// ============================================================
+const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: number }>> = {
+  // Collège (6ème à 3ème)
+  "6eme": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Mathématiques", coefficient: 4 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Physique-Chimie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arts Plastiques", coefficient: 1 },
+    { nom: "Éducation Civique", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  "5eme": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Mathématiques", coefficient: 4 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Physique-Chimie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arts Plastiques", coefficient: 1 },
+    { nom: "Éducation Civique", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  "4eme": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Mathématiques", coefficient: 4 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Physique-Chimie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arts Plastiques", coefficient: 1 },
+    { nom: "Éducation Civique", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  "3eme": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Mathématiques", coefficient: 4 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Physique-Chimie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arts Plastiques", coefficient: 1 },
+    { nom: "Éducation Civique", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Lycée - Seconde (tronc commun)
+  "seconde": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Mathématiques", coefficient: 4 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 3 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Physique-Chimie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Économie-Gestion", coefficient: 2 },
+    { nom: "Informatique", coefficient: 1 },
+    { nom: "Arabe", coefficient: 1 },
+    { nom: "Espagnol", coefficient: 1 },
+  ],
+  // Première L (Littéraire)
+  "premiere_l": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Philosophie", coefficient: 3 },
+    { nom: "Histoire-Géographie", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Mathématiques", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+    { nom: "Espagnol (optionnel)", coefficient: 1 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+  ],
+  // Première S (Scientifique)
+  "premiere_s": [
+    { nom: "Mathématiques", coefficient: 5 },
+    { nom: "Physique-Chimie", coefficient: 4 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 4 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Première S2 (Sciences exactes)
+  "premiere_s2": [
+    { nom: "Mathématiques", coefficient: 5 },
+    { nom: "Physique-Chimie", coefficient: 4 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 3 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Première G (Gestion)
+  "premiere_g": [
+    { nom: "Économie-Gestion", coefficient: 4 },
+    { nom: "Comptabilité", coefficient: 3 },
+    { nom: "Mathématiques", coefficient: 3 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Terminale L (Littéraire)
+  "terminale_l": [
+    { nom: "Français", coefficient: 4 },
+    { nom: "Philosophie", coefficient: 4 },
+    { nom: "Histoire-Géographie", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Mathématiques", coefficient: 2 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+    { nom: "Espagnol (optionnel)", coefficient: 1 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+  ],
+  // Terminale S (Scientifique)
+  "terminale_s": [
+    { nom: "Mathématiques", coefficient: 5 },
+    { nom: "Physique-Chimie", coefficient: 4 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 4 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Terminale S2 (Sciences exactes)
+  "terminale_s2": [
+    { nom: "Mathématiques", coefficient: 5 },
+    { nom: "Physique-Chimie", coefficient: 4 },
+    { nom: "Sciences de la Vie et de la Terre (SVT)", coefficient: 3 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+  // Terminale G (Gestion)
+  "terminale_g": [
+    { nom: "Économie-Gestion", coefficient: 4 },
+    { nom: "Comptabilité", coefficient: 3 },
+    { nom: "Mathématiques", coefficient: 3 },
+    { nom: "Français", coefficient: 3 },
+    { nom: "Anglais", coefficient: 2 },
+    { nom: "Philosophie", coefficient: 2 },
+    { nom: "Histoire-Géographie", coefficient: 2 },
+    { nom: "Éducation Physique et Sportive (EPS)", coefficient: 1 },
+    { nom: "Informatique (optionnel)", coefficient: 1 },
+    { nom: "Arabe (optionnel)", coefficient: 1 },
+  ],
+};
 
 const gradeSchema = z.object({
   student_id: z.string().min(1, "Sélectionnez un élève"),
@@ -136,16 +287,50 @@ const Grades = () => {
     }),
   });
 
-  // Auto-remplir le coefficient quand une matière est sélectionnée
+  // ---------- Adaptation des matières selon le niveau ----------
+  // Fonction pour déterminer le niveau à partir de l'ID ou du nom de la classe
+  const getNiveauFromClasse = (classeId: string): string | null => {
+    const classe = classes.find((c: any) => c.id === classeId);
+    if (!classe) return null;
+
+    const nom = classe.nom?.toLowerCase() || '';
+    const niveau = classe.niveau?.toLowerCase() || '';
+
+    // Mapping des noms de classes vers les clés du dictionnaire
+    if (nom.includes('6eme') || niveau.includes('6eme')) return '6eme';
+    if (nom.includes('5eme') || niveau.includes('5eme')) return '5eme';
+    if (nom.includes('4eme') || niveau.includes('4eme')) return '4eme';
+    if (nom.includes('3eme') || niveau.includes('3eme')) return '3eme';
+    if (nom.includes('seconde') || niveau.includes('seconde')) return 'seconde';
+    if (nom.includes('premiere l') || nom.includes('premiere L') || niveau.includes('litteraire')) return 'premiere_l';
+    if (nom.includes('premiere s') || nom.includes('premiere S') || niveau.includes('scientifique') || nom.includes('1ere s')) return 'premiere_s';
+    if (nom.includes('premiere s2') || nom.includes('premiere S2')) return 'premiere_s2';
+    if (nom.includes('premiere g') || nom.includes('premiere G') || niveau.includes('gestion')) return 'premiere_g';
+    if (nom.includes('terminale l') || nom.includes('terminale L') || niveau.includes('litteraire')) return 'terminale_l';
+    if (nom.includes('terminale s') || nom.includes('terminale S') || niveau.includes('scientifique') || nom.includes('tle s')) return 'terminale_s';
+    if (nom.includes('terminale s2') || nom.includes('terminale S2')) return 'terminale_s2';
+    if (nom.includes('terminale g') || nom.includes('terminale G') || niveau.includes('gestion')) return 'terminale_g';
+
+    // Si non trouvé, retourner les matières de Seconde par défaut
+    return 'seconde';
+  };
+
+  // Récupérer le niveau de la classe sélectionnée
+  const selectedClasseNiveau = selectedClasse !== 'all' ? getNiveauFromClasse(selectedClasse) : null;
+  const availableMatieres = selectedClasseNiveau ? MATIERES_BY_NIVEAU[selectedClasseNiveau] || [] : [];
+
+  // Auto-remplir le coefficient quand une matière est sélectionnée (en utilisant availableMatieres)
   const watchedMatiere = form.watch("matiere");
   useEffect(() => {
-    if (watchedMatiere) {
-      const matiere = MATIERES.find(m => m.nom === watchedMatiere);
+    if (watchedMatiere && watchedMatiere !== "aucune") {
+      // Chercher dans les matières disponibles (ou dans toutes si aucune classe sélectionnée)
+      const allMatieres = selectedClasseNiveau ? availableMatieres : Object.values(MATIERES_BY_NIVEAU).flat();
+      const matiere = allMatieres.find(m => m.nom === watchedMatiere);
       if (matiere) {
         form.setValue("coefficient", matiere.coefficient);
       }
     }
-  }, [watchedMatiere, form]);
+  }, [watchedMatiere, form, selectedClasseNiveau, availableMatieres]);
 
   const saveGradeMutation = useMutation({
     mutationFn: async (values: GradeFormValues) => {
@@ -561,16 +746,25 @@ const Grades = () => {
                   name="matiere"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Matière (optionnel)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || "aucune"}>
+                      <FormLabel>
+                        Matière
+                        {!selectedClasse || selectedClasse === 'all' ?
+                          <span className="text-muted-foreground text-xs ml-1">(sélectionnez d'abord une classe)</span> :
+                          ''}
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "aucune"}
+                        disabled={!selectedClasse || selectedClasse === 'all' || availableMatieres.length === 0}
+                      >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner une matière" />
+                            <SelectValue placeholder={!selectedClasse || selectedClasse === 'all' ? "Choisissez d'abord une classe" : "Sélectionner une matière"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="aucune">Aucune matière</SelectItem>
-                          {MATIERES.map((matiere) => (
+                          {availableMatieres.map((matiere) => (
                             <SelectItem key={matiere.nom} value={matiere.nom}>
                               {matiere.nom} (Coef. {matiere.coefficient})
                             </SelectItem>
