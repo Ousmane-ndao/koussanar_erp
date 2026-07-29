@@ -2,8 +2,6 @@ import express from 'express';
 import pool from '../database/db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import PDFDocument from 'pdfkit';
-import fs from 'fs';
-import path from 'path';
 
 const router = express.Router();
 
@@ -12,20 +10,34 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
     try {
         const { eleveId, semestreId } = req.params;
 
-        // 1. Récupérer les infos de l'élève
-        const [eleveRows] = await pool.execute(`
-            SELECT p.id, p.nom, p.prenom, p.email, p.telephone,
-                   s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
+        // 1. Récupérer les infos de l'élève (en utilisant student.id en priorité)
+        let [eleveRows] = await pool.execute(`
+            SELECT p.id as user_id, p.nom, p.prenom, p.email, p.telephone,
+                   s.id as student_id, s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
                    c.id as classe_id, c.nom as classe_nom, c.niveau
-            FROM profiles p
-            JOIN students s ON s.user_id = p.id
+            FROM students s
+            JOIN profiles p ON s.user_id = p.id
             LEFT JOIN classes c ON s.classe_id = c.id
-            WHERE p.id = ?
+            WHERE s.id = ?
         `, [eleveId]);
+
+        // Fallback : si on n'a pas trouvé avec s.id, essayer avec p.id
+        if (eleveRows.length === 0) {
+            [eleveRows] = await pool.execute(`
+                SELECT p.id as user_id, p.nom, p.prenom, p.email, p.telephone,
+                       s.id as student_id, s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
+                       c.id as classe_id, c.nom as classe_nom, c.niveau
+                FROM profiles p
+                JOIN students s ON s.user_id = p.id
+                LEFT JOIN classes c ON s.classe_id = c.id
+                WHERE p.id = ?
+            `, [eleveId]);
+        }
 
         if (eleveRows.length === 0) {
             return res.status(404).json({ message: 'Élève non trouvé' });
         }
+
         const eleve = eleveRows[0];
 
         // 2. Récupérer les notes de l'élève pour ce semestre
@@ -33,7 +45,7 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
             SELECT g.*
             FROM grades g
             WHERE g.student_id = ? AND g.semestre_id = ?
-        `, [eleveId, semestreId]);
+        `, [eleve.student_id, semestreId]);
 
         // 3. Récupérer les infos du semestre
         const [semestreRows] = await pool.execute(`
@@ -58,9 +70,7 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
         matieresMap.forEach((value, matiere) => {
             const notes = value.notes;
             const coefs = value.coefficients;
-            // Moyenne simple
-            const moyenne = notes.reduce((a,b) => a+b, 0) / notes.length;
-            // Moyenne pondérée
+            const moyenne = notes.reduce((a, b) => a + b, 0) / notes.length;
             let sommePonderee = 0;
             let sommeCoefs = 0;
             notes.forEach((n, i) => {
@@ -68,7 +78,6 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
                 sommeCoefs += coefs[i];
             });
             const moyennePonderee = sommeCoefs > 0 ? sommePonderee / sommeCoefs : moyenne;
-            // Coefficient moyen (ou le premier coefficient)
             const coef = coefs[0] || 1;
 
             matieresBulletin.push({
@@ -86,8 +95,7 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
 
         const moyenneGenerale = totalCoefs > 0 ? parseFloat((totalPoints / totalCoefs).toFixed(3)) : 0;
 
-        // 5. Rang dans la classe pour ce semestre
-        // On calcule les moyennes de tous les élèves de la même classe pour ce semestre
+        // 5. Calcul du rang dans la classe pour ce semestre
         const [classRanks] = await pool.execute(`
             SELECT s.user_id,
                    (SELECT AVG(g.note * g.coefficient) / AVG(g.coefficient)
@@ -102,12 +110,11 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
         let rang = 1;
         let totalEleves = classRanks.length;
         let moyennesEleves = classRanks.map(r => parseFloat(r.moyenne) || 0);
-        const moyenneClasse = moyennesEleves.length > 0 ? moyennesEleves.reduce((a,b) => a+b, 0) / moyennesEleves.length : 0;
-        // Trouver le rang de l'élève
+        const moyenneClasse = moyennesEleves.length > 0 ? moyennesEleves.reduce((a, b) => a + b, 0) / moyennesEleves.length : 0;
         const index = moyennesEleves.findIndex(m => m === moyenneGenerale);
         if (index !== -1) rang = index + 1;
 
-        // 6. Appréciation en fonction de la moyenne générale
+        // 6. Appréciation
         let appreciation = '';
         if (moyenneGenerale >= 16) appreciation = 'EXCELLENT(E) ELEVE';
         else if (moyenneGenerale >= 14) appreciation = 'TRES BON ELEVE';
@@ -117,13 +124,13 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
         else if (moyenneGenerale >= 6) appreciation = 'ELEVE FAIBLE';
         else appreciation = 'ELEVE TRES FAIBLE';
 
-        // 7. Compter les absences et retards (à partir de la table attendance)
+        // 7. Absences et retards (à partir de attendance)
         const [absenceData] = await pool.execute(`
             SELECT COUNT(*) as nb_absences,
                    SUM(CASE WHEN status = 'retard' THEN 1 ELSE 0 END) as nb_retards
             FROM attendance
             WHERE student_id = ? AND DATE BETWEEN ? AND ?
-        `, [eleveId, semestre.date_debut, semestre.date_fin]);
+        `, [eleve.student_id, semestre.date_debut, semestre.date_fin]);
 
         const nbAbsences = absenceData[0]?.nb_absences || 0;
         const nbRetards = absenceData[0]?.nb_retards || 0;
@@ -157,12 +164,12 @@ router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
     }
 });
 
-// Générer un PDF de bulletin
+// Générer un PDF (inchangé)
 router.post('/generate-pdf', authenticateToken, async (req, res) => {
     try {
         const { eleveId, semestreId } = req.body;
 
-        // Récupérer les données du bulletin
+        // Appel interne pour récupérer les données
         const response = await fetch(`${req.protocol}://${req.get('host')}/api/bulletins/${eleveId}/${semestreId}`, {
             headers: { Authorization: req.headers.authorization }
         });
@@ -172,7 +179,6 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Données non trouvées' });
         }
 
-        // Créer le PDF
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
@@ -186,10 +192,9 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
         // En-tête
         doc.fontSize(16).text('BULLETIN DE NOTES', { align: 'center' });
         doc.moveDown(0.5);
-        doc.fontSize(12).text(`Établissement: Lycée de Koussanar - ${data.semestre.annee_scolaire}`, { align: 'center' });
+        doc.fontSize(12).text(`Lycée de Koussanar - ${data.semestre.annee_scolaire}`, { align: 'center' });
         doc.moveDown(0.5);
 
-        // Informations élève
         doc.fontSize(10);
         doc.text(`Prénom: ${data.eleve.prenom}`, { continued: true });
         doc.text(`  Nom: ${data.eleve.nom}`, { align: 'right' });
@@ -199,7 +204,6 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
         doc.text(`Semestre: ${data.semestre.nom}`);
         doc.moveDown(0.5);
 
-        // Tableau des notes
         const tableTop = doc.y;
         const col1 = 40;
         const col2 = 200;
@@ -251,13 +255,11 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
         doc.font('Helvetica-Bold').fontSize(12);
         doc.text(`Appréciation: ${data.appreciation}`, 40, yPos);
 
-        // Pied de page
         doc.moveDown(2);
         doc.fontSize(8).text('Lycée de Koussanar - Système ERP', 40, 750, { align: 'center' });
         doc.text('SICAP MBAO VILLA N°88 - Tél: +221338345648', { align: 'center' });
 
         doc.end();
-
     } catch (error) {
         console.error('Erreur génération PDF:', error);
         res.status(500).json({ message: 'Erreur lors de la génération du PDF' });
