@@ -14,6 +14,7 @@ import schedulesRoutes from './routes/schedules.js';
 import feeTypesRoutes from './routes/fee-types.js';
 import semestersRoutes from './routes/semesters.js';
 import exportRoutes from './routes/export.js';
+import announcementsRoutes from './routes/announcements.js'; // 👈 NOUVEAU
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use('/api/schedules', schedulesRoutes);
 app.use('/api/fee-types', feeTypesRoutes);
 app.use('/api/semesters', semestersRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/announcements', announcementsRoutes); // 👈 NOUVEAU
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -57,7 +59,7 @@ app.use((err, req, res, next) => {
   console.error('Error Message:', err.message);
   console.error('Error Stack:', err.stack);
   console.error('='.repeat(50));
-  
+
   res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -67,4 +69,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
