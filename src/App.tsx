@@ -32,7 +32,7 @@ import EleveGrades from "./pages/eleve/EleveGrades";
 import ElevePayments from "./pages/eleve/ElevePayments";
 // Pages spécifiques comptable
 import ComptableReports from "./pages/comptable/ComptableReports";
-import Bulletins from "@/pages/Bulletins";
+import Bulletins from "@/pages/Bulletins"; // ✅ Import ajouté
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -154,6 +154,14 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+
+                {/* ✅ NOUVELLE ROUTE POUR LES BULLETINS */}
+                <Route path="/bulletins" element={
+                  <ProtectedRoute requirePermission="manage_grades">
+                    <Bulletins />
+                  </ProtectedRoute>
+                } />
+
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
