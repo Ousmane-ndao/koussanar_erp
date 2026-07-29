@@ -66,8 +66,7 @@ class ApiClient {
           message: data?.message || 'Une erreur est survenue',
           errors: data?.errors,
         };
-        
-        // Log l'erreur dans la console
+
         console.error(`[API Error] ${endpoint}:`, {
           status: response.status,
           statusText: response.statusText,
@@ -78,13 +77,12 @@ class ApiClient {
             body: options.body,
           },
         });
-        
+
         throw error;
       }
 
       return data;
     } catch (error: any) {
-      // Log les erreurs réseau
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         console.error(`[Network Error] Impossible de se connecter à l'API:`, {
           endpoint,
@@ -93,8 +91,7 @@ class ApiClient {
         });
         throw new Error('Erreur de connexion au serveur. Vérifiez que le serveur backend est démarré.');
       }
-      
-      // Re-lancer l'erreur si elle a déjà été traitée
+
       throw error;
     }
   }
@@ -171,7 +168,6 @@ class ApiClient {
   // Students methods
   async getStudents() {
     const data = await this.request<any[]>('/students');
-    // The backend returns nom, prenom directly from the JOIN, so no transformation needed
     return data;
   }
 
@@ -231,7 +227,6 @@ class ApiClient {
   // Attendance methods
   async getAttendanceByDate(date: string) {
     const data = await this.request<any[]>(`/attendance/date/${date}`);
-    // Format response to match frontend expectations
     return data.map((record: any) => ({
       ...record,
       student_id: record.student_id,
@@ -266,7 +261,6 @@ class ApiClient {
         retard: number;
       }>(`/attendance/stats/${date}`);
     } catch (error) {
-      // Retourner des stats vides si aucune donnée
       return {
         total: 0,
         present: 0,
@@ -306,7 +300,6 @@ class ApiClient {
         annee_scolaire: string;
       }>(url);
     } catch (error) {
-      // Retourner des stats vides si aucune donnée
       return {
         total_transactions: 0,
         total_recettes: 0,
@@ -318,10 +311,9 @@ class ApiClient {
     }
   }
 
-  // Messages/Announcements methods
+  // Messages/Announcements methods (CORRIGÉ : utilisation de /announcements)
   async getAnnouncements() {
-    const data = await this.request<any[]>('/messages');
-    // Format response to match frontend expectations
+    const data = await this.request<any[]>('/announcements');
     return data.map((announcement: any) => ({
       ...announcement,
       profiles: {
@@ -332,7 +324,7 @@ class ApiClient {
   }
 
   async getAnnouncement(id: string) {
-    return this.request<any>(`/messages/${id}`);
+    return this.request<any>(`/announcements/${id}`);
   }
 
   async createAnnouncement(announcementData: {
@@ -344,21 +336,21 @@ class ApiClient {
     target_class_id?: string;
     target_user_id?: string;
   }) {
-    return this.request<{ message: string; id: string }>('/messages', {
+    return this.request<{ message: string; id: string }>('/announcements', {
       method: 'POST',
       body: JSON.stringify(announcementData),
     });
   }
 
   async updateAnnouncement(id: string, announcementData: any) {
-    return this.request<{ message: string }>(`/messages/${id}`, {
+    return this.request<{ message: string }>(`/announcements/${id}`, {
       method: 'PUT',
       body: JSON.stringify(announcementData),
     });
   }
 
   async deleteAnnouncement(id: string) {
-    return this.request<{ message: string }>(`/messages/${id}`, {
+    return this.request<{ message: string }>(`/announcements/${id}`, {
       method: 'DELETE',
     });
   }
@@ -366,7 +358,6 @@ class ApiClient {
   // Documents methods
   async getDocuments() {
     const data = await this.request<any[]>('/documents');
-    // Format response to match frontend expectations
     return data.map((doc: any) => ({
       ...doc,
       profiles: {
@@ -386,7 +377,6 @@ class ApiClient {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        // Don't set Content-Type, let the browser set it with boundary for FormData
       },
       body: formData,
     });
@@ -415,7 +405,7 @@ class ApiClient {
     if (filters?.student_id) params.append('student_id', filters.student_id);
     if (filters?.matiere) params.append('matiere', filters.matiere);
     if (filters?.annee_scolaire) params.append('annee_scolaire', filters.annee_scolaire);
-    
+
     const query = params.toString();
     return this.request<any[]>(`/grades${query ? `?${query}` : ''}`);
   }
@@ -451,7 +441,7 @@ class ApiClient {
     const params = new URLSearchParams();
     if (filters?.matiere) params.append('matiere', filters.matiere);
     if (filters?.annee_scolaire) params.append('annee_scolaire', filters.annee_scolaire);
-    
+
     const query = params.toString();
     return this.request<any[]>(`/grades/student/${studentId}/average${query ? `?${query}` : ''}`);
   }
@@ -833,7 +823,6 @@ class ApiClient {
     document.body.removeChild(a);
   }
 
-  // Export users and roles (Admin only)
   async exportUsersRolesPDF() {
     const token = this.getToken();
     const response = await fetch(`${this.baseURL}/export/users-roles/pdf`, {
@@ -886,4 +875,3 @@ class ApiClient {
 }
 
 export const api = new ApiClient(API_BASE_URL);
-
