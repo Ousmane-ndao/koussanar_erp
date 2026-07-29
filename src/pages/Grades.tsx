@@ -149,9 +149,12 @@ const Grades = () => {
 
   const saveGradeMutation = useMutation({
     mutationFn: async (values: GradeFormValues) => {
+      // Si la matière est "aucune", on l'envoie comme null
+      const matiereValue = values.matiere === "aucune" ? null : values.matiere || null;
+
       const gradeData = {
         student_id: values.student_id,
-        matiere: values.matiere || "",
+        matiere: matiereValue,
         note: values.note,
         coefficient: values.coefficient,
         type_evaluation: values.type_evaluation,
@@ -496,17 +499,17 @@ const Grades = () => {
                         </PopoverContent>
                       </Popover>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
+                        {/* Sélecteur de classe */}
                         <Select
                           value={selectedClasse}
                           onValueChange={(value) => {
                             setSelectedClasse(value);
-                            if (value !== "all") {
-                              field.onChange("");
-                            }
+                            // Réinitialiser l'élève sélectionné quand la classe change
+                            field.onChange("");
                           }}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger>
                             <SelectValue placeholder="Sélectionner une classe" />
                           </SelectTrigger>
                           <SelectContent>
@@ -523,22 +526,20 @@ const Grades = () => {
                             )}
                           </SelectContent>
                         </Select>
+
+                        {/* Sélecteur d'élève */}
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
-                          disabled={selectedClasse === "all"}
+                          disabled={selectedClasse === "all" || !selectedClasse}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder={selectedClasse === "all" ? "Sélectionnez d'abord une classe" : "Sélectionner un élève"} />
+                              <SelectValue placeholder={selectedClasse === "all" || !selectedClasse ? "Choisissez d'abord une classe" : "Sélectionner un élève"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {selectedClasse === "all" ? (
-                              <SelectItem value="" disabled>
-                                Sélectionnez d'abord une classe
-                              </SelectItem>
-                            ) : (
+                            {selectedClasse !== "all" && selectedClasse && (
                               (studentsByClass[selectedClasse] || []).map((student: any) => (
                                 <SelectItem key={student.id} value={student.id}>
                                   {student.prenom} {student.nom} - {student.matricule}
@@ -561,14 +562,14 @@ const Grades = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Matière (optionnel)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={field.onChange} value={field.value || "aucune"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Sélectionner une matière" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Aucune matière</SelectItem>
+                          <SelectItem value="aucune">Aucune matière</SelectItem>
                           {MATIERES.map((matiere) => (
                             <SelectItem key={matiere.nom} value={matiere.nom}>
                               {matiere.nom} (Coef. {matiere.coefficient})
@@ -746,5 +747,3 @@ const Grades = () => {
 };
 
 export default Grades;
-
-
