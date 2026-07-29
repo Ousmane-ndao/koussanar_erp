@@ -12,7 +12,7 @@ import {
   UserCircle,
   Clock,
   Shield,
-  FileSpreadsheet, // Nouvelle icône pour les bulletins
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -26,6 +26,7 @@ interface MenuItem {
   requirePermission?: string;
   requireAnyPermission?: string[];
   requireRole?: string;
+  requireAnyRole?: string[];
 }
 
 const allMenuItems: MenuItem[] = [
@@ -37,7 +38,7 @@ const allMenuItems: MenuItem[] = [
   { icon: UserCircle, label: "Enseignants", path: "/dashboard/teachers", requirePermission: "manage_users" },
   { icon: BookOpen, label: "Classes", path: "/dashboard/classes" },
   { icon: ClipboardList, label: "Notes", path: "/dashboard/grades" },
-  { icon: FileSpreadsheet, label: "Bulletins", path: "/bulletins", requirePermission: "manage_grades" }, // ✅ NOUVEAU
+  { icon: FileSpreadsheet, label: "Bulletins", path: "/bulletins", requireRole: "admin" }, // ✅ Seuls les admins
   { icon: Calendar, label: "Présences", path: "/dashboard/attendance" },
   { icon: Clock, label: "Emplois du temps", path: "/dashboard/schedules", requirePermission: "manage_schedule" },
   { icon: GraduationCap, label: "Semestres", path: "/dashboard/semesters", requirePermission: "manage_schedule" },

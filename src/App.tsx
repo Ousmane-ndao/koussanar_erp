@@ -18,6 +18,7 @@ import Grades from "./pages/Grades";
 import Teachers from "./pages/Teachers";
 import Schedules from "./pages/Schedules";
 import Semesters from "./pages/Semesters";
+import Bulletins from "@/pages/Bulletins";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Dashboards spécifiques par rôle
@@ -32,7 +33,6 @@ import EleveGrades from "./pages/eleve/EleveGrades";
 import ElevePayments from "./pages/eleve/ElevePayments";
 // Pages spécifiques comptable
 import ComptableReports from "./pages/comptable/ComptableReports";
-import Bulletins from "@/pages/Bulletins"; // ✅ Import ajouté
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +115,13 @@ const App = () => {
                   </ProtectedRoute>
                 } />
 
+                {/* ✅ Route pour les bulletins (réservée aux administrateurs) */}
+                <Route path="/bulletins" element={
+                  <ProtectedRoute requireRole="admin">
+                    <Bulletins />
+                  </ProtectedRoute>
+                } />
+
                 {/* Routes existantes (compatibilité) */}
                 <Route path="/dashboard/students" element={<Students />} />
                 <Route path="/dashboard/classes" element={<Classes />} />
@@ -154,14 +161,6 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-
-                {/* ✅ NOUVELLE ROUTE POUR LES BULLETINS */}
-                <Route path="/bulletins" element={
-                  <ProtectedRoute requirePermission="manage_grades">
-                    <Bulletins />
-                  </ProtectedRoute>
-                } />
-
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
