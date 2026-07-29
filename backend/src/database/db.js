@@ -1,6 +1,9 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
-
+// Ajoutez ceci dans la configuration du pool
+ssl: {
+  rejectUnauthorized: false
+}
 dotenv.config();
 
 const pool = mysql.createPool({

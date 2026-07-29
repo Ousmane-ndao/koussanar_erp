@@ -64,7 +64,8 @@ router.get('/', authenticateToken, async (req, res) => {
     let userClasseIds = [];
     try {
       if (isEleve) {
-        const [studentRows] = await pool.execute('SELECT classe_id FROM students WHERE user_id = ? AND statut_inscription = "actif"', [req.user.id]);
+        // 🔥 Correction : remplacer statut_inscription par statut
+        const [studentRows] = await pool.execute('SELECT classe_id FROM students WHERE user_id = ? AND statut = "actif"', [req.user.id]);
         userClasseIds = studentRows.filter(r => !!r.classe_id).map(r => r.classe_id);
       } else if (isEnseignant) {
         const [teachers] = await pool.execute('SELECT id FROM teachers WHERE user_id = ?', [req.user.id]);
@@ -177,7 +178,7 @@ router.post('/', authenticateToken, upload.single('file'), [
     }
 
     await pool.execute(
-      `INSERT INTO documents (id, nom, categorie, visibilite, classe_id, type_fichier, taille, url, uploaded_by) 
+      `INSERT INTO documents (id, nom, categorie, visibilite, classe_id, type_fichier, taille, url, uploaded_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, nom, categorie || 'autre', finalVisibilite, finalClasseId, req.file.mimetype, req.file.size, fileUrl, req.user.id]
     );
@@ -232,4 +233,3 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 export default router;
-
