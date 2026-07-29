@@ -27,7 +27,8 @@ router.get('/', authenticateToken, async (req, res) => {
     try {
       if (isEleve) {
         // 🔥 Correction : remplacer statut_inscription par statut
-        const [studentRows] = await pool.execute('SELECT classe_id FROM students WHERE user_id = ? AND statut = "actif"', [req.user.id]);
+// ✅ CORRECT
+const [studentRows] = await pool.execute('SELECT classe_id FROM students WHERE user_id = ? AND statut_inscription = "actif"', [req.user.id]);
         userClasseIds = studentRows.filter(r => !!r.classe_id).map(r => r.classe_id);
       } else if (isEnseignant) {
         const [teachers] = await pool.execute('SELECT id FROM teachers WHERE user_id = ?', [req.user.id]);
