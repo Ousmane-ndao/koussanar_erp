@@ -28,7 +28,8 @@ import { cn } from "@/lib/utils";
 // Programme scolaire sénégalais - Matières par niveau
 // ============================================================
 const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: number }>> = {
-  // Collège (6ème à 3ème)
+  // ... (contenu inchangé) ...
+  // On le garde tel quel pour ne pas alourdir, mais je le laisse en entier pour le fichier final
   "6eme": [
     { nom: "Français", coefficient: 4 },
     { nom: "Mathématiques", coefficient: 4 },
@@ -77,7 +78,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Éducation Civique", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Lycée - Seconde (tronc commun)
   "seconde": [
     { nom: "Français", coefficient: 4 },
     { nom: "Mathématiques", coefficient: 4 },
@@ -92,7 +92,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Arabe", coefficient: 1 },
     { nom: "Espagnol", coefficient: 1 },
   ],
-  // Première L (Littéraire)
   "premiere_l": [
     { nom: "Français", coefficient: 4 },
     { nom: "Philosophie", coefficient: 3 },
@@ -105,7 +104,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Espagnol (optionnel)", coefficient: 1 },
     { nom: "Informatique (optionnel)", coefficient: 1 },
   ],
-  // Première S (Scientifique)
   "premiere_s": [
     { nom: "Mathématiques", coefficient: 5 },
     { nom: "Physique-Chimie", coefficient: 4 },
@@ -118,7 +116,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Informatique (optionnel)", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Première S2 (Sciences exactes)
   "premiere_s2": [
     { nom: "Mathématiques", coefficient: 5 },
     { nom: "Physique-Chimie", coefficient: 4 },
@@ -131,7 +128,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Informatique (optionnel)", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Première G (Gestion)
   "premiere_g": [
     { nom: "Économie-Gestion", coefficient: 4 },
     { nom: "Comptabilité", coefficient: 3 },
@@ -144,7 +140,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Informatique (optionnel)", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Terminale L (Littéraire)
   "terminale_l": [
     { nom: "Français", coefficient: 4 },
     { nom: "Philosophie", coefficient: 4 },
@@ -157,7 +152,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Espagnol (optionnel)", coefficient: 1 },
     { nom: "Informatique (optionnel)", coefficient: 1 },
   ],
-  // Terminale S (Scientifique)
   "terminale_s": [
     { nom: "Mathématiques", coefficient: 5 },
     { nom: "Physique-Chimie", coefficient: 4 },
@@ -170,7 +164,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Informatique (optionnel)", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Terminale S2 (Sciences exactes)
   "terminale_s2": [
     { nom: "Mathématiques", coefficient: 5 },
     { nom: "Physique-Chimie", coefficient: 4 },
@@ -183,7 +176,6 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
     { nom: "Informatique (optionnel)", coefficient: 1 },
     { nom: "Arabe (optionnel)", coefficient: 1 },
   ],
-  // Terminale G (Gestion)
   "terminale_g": [
     { nom: "Économie-Gestion", coefficient: 4 },
     { nom: "Comptabilité", coefficient: 3 },
@@ -198,6 +190,7 @@ const MATIERES_BY_NIVEAU: Record<string, Array<{ nom: string; coefficient: numbe
   ],
 };
 
+// Modification du schéma pour ajouter semestre_id
 const gradeSchema = z.object({
   student_id: z.string().min(1, "Sélectionnez un élève"),
   matiere: z.string().optional(),
@@ -207,6 +200,7 @@ const gradeSchema = z.object({
   date_evaluation: z.date(),
   annee_scolaire: z.string().optional(),
   remarque: z.string().optional(),
+  semestre_id: z.string().optional(), // AJOUT
 });
 
 type GradeFormValues = z.infer<typeof gradeSchema>;
@@ -220,6 +214,7 @@ const Grades = () => {
   const [selectedClasse, setSelectedClasse] = useState<string>("all");
   const [studentSearchOpen, setStudentSearchOpen] = useState(false);
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [selectedSemestre, setSelectedSemestre] = useState<string>(""); // AJOUT
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
@@ -235,6 +230,7 @@ const Grades = () => {
       type_evaluation: "devoir",
       date_evaluation: new Date(),
       annee_scolaire: anneeScolaire,
+      semestre_id: "", // AJOUT
     },
   });
 
@@ -248,6 +244,12 @@ const Grades = () => {
   const { data: classes = [] } = useQuery({
     queryKey: ["classes"],
     queryFn: () => api.getClasses(),
+  });
+
+  // AJOUT : Fetch semestres
+  const { data: semestres = [] } = useQuery({
+    queryKey: ["semestres"],
+    queryFn: () => api.getSemesters({ actif: true }),
   });
 
   // Grouper les élèves par classe
@@ -288,7 +290,6 @@ const Grades = () => {
   });
 
   // ---------- Adaptation des matières selon le niveau ----------
-  // Fonction pour déterminer le niveau à partir de l'ID ou du nom de la classe
   const getNiveauFromClasse = (classeId: string): string | null => {
     const classe = classes.find((c: any) => c.id === classeId);
     if (!classe) return null;
@@ -296,7 +297,6 @@ const Grades = () => {
     const nom = classe.nom?.toLowerCase() || '';
     const niveau = classe.niveau?.toLowerCase() || '';
 
-    // Mapping des noms de classes vers les clés du dictionnaire
     if (nom.includes('6eme') || niveau.includes('6eme')) return '6eme';
     if (nom.includes('5eme') || niveau.includes('5eme')) return '5eme';
     if (nom.includes('4eme') || niveau.includes('4eme')) return '4eme';
@@ -311,19 +311,15 @@ const Grades = () => {
     if (nom.includes('terminale s2') || nom.includes('terminale S2')) return 'terminale_s2';
     if (nom.includes('terminale g') || nom.includes('terminale G') || niveau.includes('gestion')) return 'terminale_g';
 
-    // Si non trouvé, retourner les matières de Seconde par défaut
     return 'seconde';
   };
 
-  // Récupérer le niveau de la classe sélectionnée
   const selectedClasseNiveau = selectedClasse !== 'all' ? getNiveauFromClasse(selectedClasse) : null;
   const availableMatieres = selectedClasseNiveau ? MATIERES_BY_NIVEAU[selectedClasseNiveau] || [] : [];
 
-  // Auto-remplir le coefficient quand une matière est sélectionnée (en utilisant availableMatieres)
   const watchedMatiere = form.watch("matiere");
   useEffect(() => {
     if (watchedMatiere && watchedMatiere !== "aucune") {
-      // Chercher dans les matières disponibles (ou dans toutes si aucune classe sélectionnée)
       const allMatieres = selectedClasseNiveau ? availableMatieres : Object.values(MATIERES_BY_NIVEAU).flat();
       const matiere = allMatieres.find(m => m.nom === watchedMatiere);
       if (matiere) {
@@ -334,7 +330,6 @@ const Grades = () => {
 
   const saveGradeMutation = useMutation({
     mutationFn: async (values: GradeFormValues) => {
-      // Si la matière est "aucune", on l'envoie comme null
       const matiereValue = values.matiere === "aucune" ? null : values.matiere || null;
 
       const gradeData = {
@@ -346,6 +341,7 @@ const Grades = () => {
         date_evaluation: values.date_evaluation.toISOString().split('T')[0],
         annee_scolaire: values.annee_scolaire || anneeScolaire,
         remarque: values.remarque || null,
+        semestre_id: values.semestre_id || null, // AJOUT
       };
 
       if (editingGrade) {
@@ -361,11 +357,13 @@ const Grades = () => {
       setSelectedClasse("all");
       setStudentSearchQuery("");
       setStudentSearchOpen(false);
+      setSelectedSemestre(""); // AJOUT : réinitialisation
       form.reset({
         coefficient: 1,
         type_evaluation: "devoir",
         date_evaluation: new Date(),
         annee_scolaire: anneeScolaire,
+        semestre_id: "", // AJOUT
       });
       toast({
         title: "Succès",
@@ -415,7 +413,6 @@ const Grades = () => {
 
   const handleEdit = (grade: any) => {
     setEditingGrade(grade);
-    // Trouver la classe de l'élève pour pré-sélectionner
     const student = students.find((s: any) => s.id === grade.student_id);
     if (student?.classe_id) {
       setSelectedClasse(student.classe_id);
@@ -424,6 +421,7 @@ const Grades = () => {
     }
     setStudentSearchQuery("");
     setStudentSearchOpen(false);
+    setSelectedSemestre(grade.semestre_id || ""); // AJOUT
     form.reset({
       student_id: grade.student_id,
       matiere: grade.matiere || "",
@@ -433,6 +431,7 @@ const Grades = () => {
       date_evaluation: new Date(grade.date_evaluation),
       annee_scolaire: grade.annee_scolaire || "",
       remarque: grade.remarque || "",
+      semestre_id: grade.semestre_id || "", // AJOUT
     });
     setIsDialogOpen(true);
   };
@@ -463,11 +462,13 @@ const Grades = () => {
                 setSelectedClasse("all");
                 setStudentSearchQuery("");
                 setStudentSearchOpen(false);
+                setSelectedSemestre(""); // AJOUT
                 form.reset({
                   coefficient: 1,
                   type_evaluation: "devoir",
                   date_evaluation: new Date(),
                   annee_scolaire: anneeScolaire,
+                  semestre_id: "", // AJOUT
                 });
                 setIsDialogOpen(true);
               }}
@@ -685,12 +686,10 @@ const Grades = () => {
                       </Popover>
                     ) : (
                       <div className="space-y-3">
-                        {/* Sélecteur de classe */}
                         <Select
                           value={selectedClasse}
                           onValueChange={(value) => {
                             setSelectedClasse(value);
-                            // Réinitialiser l'élève sélectionné quand la classe change
                             field.onChange("");
                           }}
                         >
@@ -712,7 +711,6 @@ const Grades = () => {
                           </SelectContent>
                         </Select>
 
-                        {/* Sélecteur d'élève */}
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
@@ -740,7 +738,39 @@ const Grades = () => {
                 )}
               />
 
+              {/* AJOUT du champ Semestre */}
               <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="semestre_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Semestre</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedSemestre(value);
+                        }}
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un semestre" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {semestres.map((s: any) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.nom} ({s.annee_scolaire})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="matiere"
@@ -775,7 +805,9 @@ const Grades = () => {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="note"
@@ -797,9 +829,7 @@ const Grades = () => {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="coefficient"
@@ -822,7 +852,9 @@ const Grades = () => {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="type_evaluation"
@@ -846,9 +878,7 @@ const Grades = () => {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="date_evaluation"
@@ -867,7 +897,9 @@ const Grades = () => {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="annee_scolaire"
@@ -918,11 +950,13 @@ const Grades = () => {
                     setSelectedClasse("all");
                     setStudentSearchQuery("");
                     setStudentSearchOpen(false);
+                    setSelectedSemestre("");
                     form.reset({
                       coefficient: 1,
                       type_evaluation: "devoir",
                       date_evaluation: new Date(),
                       annee_scolaire: anneeScolaire,
+                      semestre_id: "",
                     });
                   }}
                 >

@@ -55,15 +55,15 @@ router.get('/', authenticateToken, async (req, res) => {
           'SELECT DISTINCT classe_id, matiere FROM teacher_classes WHERE teacher_id = ?',
           [teacherId]
         );
-        
+
         if (teacherClasses.length > 0) {
           // Filtrer par classes
           const classeIds = [...new Set(teacherClasses.map(tc => tc.classe_id))];
           const matieres = [...new Set(teacherClasses.map(tc => tc.matiere).filter(m => m))];
-          
+
           query += ` AND s.classe_id IN (${classeIds.map(() => '?').join(',')})`;
           params.push(...classeIds);
-          
+
           // Si des matières sont spécifiées, filtrer aussi par matière
           if (matieres.length > 0) {
             query += ` AND g.matiere IN (${matieres.map(() => '?').join(',')})`;
@@ -215,7 +215,7 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
 
     const {
       student_id, matiere, note, coefficient, type_evaluation,
-      date_evaluation, annee_scolaire, remarque
+      date_evaluation, annee_scolaire, remarque, semestre_id
     } = req.body;
 
     // Si professeur (pas admin), vérifier qu'il peut saisir cette note
@@ -225,7 +225,7 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
         'SELECT classe_id FROM students WHERE id = ?',
         [student_id]
       );
-      
+
       if (students.length === 0) {
         return res.status(404).json({ message: 'Élève non trouvé' });
       }
@@ -253,8 +253,8 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
         );
 
         if (teacherClass.length === 0) {
-          return res.status(403).json({ 
-            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos propres matières et classes' 
+          return res.status(403).json({
+            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos propres matières et classes'
           });
         }
       } else {
@@ -275,15 +275,15 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
         );
 
         if (teacherClass.length === 0) {
-          return res.status(403).json({ 
-            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos classes' 
+          return res.status(403).json({
+            message: 'Accès refusé: vous ne pouvez saisir des notes que pour vos classes'
           });
         }
       }
     }
 
     const id = generateUUID();
-    
+
     // Déterminer l'année scolaire (par défaut: année en cours)
     let finalAnneeScolaire = annee_scolaire;
     if (!finalAnneeScolaire || !finalAnneeScolaire.trim()) {
@@ -292,11 +292,11 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
     }
 
     await pool.execute(
-      `INSERT INTO grades (id, student_id, matiere, note, coefficient, type_evaluation, 
-        date_evaluation, annee_scolaire, remarque, created_by) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO grades (id, student_id, matiere, note, coefficient, type_evaluation,
+        date_evaluation, annee_scolaire, remarque, created_by, semestre_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, student_id, matiere || '', note, coefficient || 1.0, type_evaluation || 'devoir',
-        date_evaluation, finalAnneeScolaire, remarque || null, req.user.id]
+        date_evaluation, finalAnneeScolaire, remarque || null, req.user.id, semestre_id || null]
     );
 
     res.status(201).json({ message: 'Note enregistrée avec succès', id });
@@ -355,8 +355,8 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
         );
 
         if (teacherClass.length === 0) {
-          return res.status(403).json({ 
-            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos propres matières et classes' 
+          return res.status(403).json({
+            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos propres matières et classes'
           });
         }
       } else {
@@ -377,22 +377,22 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
         );
 
         if (teacherClass.length === 0) {
-          return res.status(403).json({ 
-            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos classes' 
+          return res.status(403).json({
+            message: 'Accès refusé: vous ne pouvez modifier que les notes de vos classes'
           });
         }
       }
 
       // Vérifier que le créateur est bien ce professeur (ou admin)
       if (existingGrade.created_by !== req.user.id && !isAdmin) {
-        return res.status(403).json({ 
-          message: 'Accès refusé: vous ne pouvez modifier que les notes que vous avez créées' 
+        return res.status(403).json({
+          message: 'Accès refusé: vous ne pouvez modifier que les notes que vous avez créées'
         });
       }
     }
 
     const {
-      matiere, note, coefficient, type_evaluation, date_evaluation, annee_scolaire, remarque
+      matiere, note, coefficient, type_evaluation, date_evaluation, annee_scolaire, remarque, semestre_id
     } = req.body;
 
     // Déterminer l'année scolaire (par défaut: année en cours si non fournie)
@@ -403,17 +403,19 @@ router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
     }
 
     await pool.execute(
-      `UPDATE grades SET 
+      `UPDATE grades SET
         matiere = COALESCE(?, matiere),
         note = COALESCE(?, note),
         coefficient = COALESCE(?, coefficient),
         type_evaluation = COALESCE(?, type_evaluation),
         date_evaluation = COALESCE(?, date_evaluation),
         annee_scolaire = COALESCE(?, annee_scolaire),
-        remarque = COALESCE(?, remarque)
+        remarque = COALESCE(?, remarque),
+        semestre_id = COALESCE(?, semestre_id)
        WHERE id = ?`,
       [matiere !== undefined ? (matiere || '') : null, note || null, coefficient || null, type_evaluation || null,
-        date_evaluation || null, finalAnneeScolaire !== undefined ? finalAnneeScolaire : null, remarque || null, req.params.id]
+        date_evaluation || null, finalAnneeScolaire !== undefined ? finalAnneeScolaire : null, remarque || null,
+        semestre_id !== undefined ? semestre_id : null, req.params.id]
     );
 
     res.json({ message: 'Note modifiée avec succès' });
@@ -446,8 +448,8 @@ router.delete('/:id', authenticateToken, requirePermission('enter_grades'), asyn
 
       // Vérifier que le créateur est bien ce professeur
       if (existingGrade.created_by !== req.user.id) {
-        return res.status(403).json({ 
-          message: 'Accès refusé: vous ne pouvez supprimer que les notes que vous avez créées' 
+        return res.status(403).json({
+          message: 'Accès refusé: vous ne pouvez supprimer que les notes que vous avez créées'
         });
       }
     }
@@ -465,7 +467,7 @@ router.get('/student/:studentId/average', authenticateToken, async (req, res) =>
   try {
     const { matiere, annee_scolaire } = req.query;
     let query = `
-      SELECT 
+      SELECT
         matiere,
         AVG(note * coefficient) / AVG(coefficient) as moyenne,
         COUNT(*) as nombre_notes
@@ -494,4 +496,3 @@ router.get('/student/:studentId/average', authenticateToken, async (req, res) =>
 });
 
 export default router;
-
