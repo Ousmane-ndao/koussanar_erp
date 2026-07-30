@@ -11,7 +11,7 @@ router.get('/current', authenticateToken, schoolYearController.getCurrentSchoolY
 router.get('/:id', authenticateToken, schoolYearController.getSchoolYearById);
 
 // Routes admin
-router.post('/', authenticateToken, requirePermission('manage_users'), schoolYearController.createSchoolYear);
+//router.post('/', authenticateToken, requirePermission('manage_users'), schoolYearController.createSchoolYear);
 router.put('/:id', authenticateToken, requirePermission('manage_users'), schoolYearController.updateSchoolYear);
 router.delete('/:id', authenticateToken, requirePermission('manage_users'), schoolYearController.deleteSchoolYear);
 
