@@ -5,175 +5,173 @@ import PDFDocument from 'pdfkit';
 
 const router = express.Router();
 
-// Récupérer les données pour un bulletin
-router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
-    try {
-        const { eleveId, semestreId } = req.params;
+// ---------- Fonction réutilisable de récupération des données ----------
+async function getBulletinData(eleveId, semestreId) {
+    // 1. Récupérer les infos de l'élève (en priorité via student_id, fallback via user_id)
+    let [eleveRows] = await pool.execute(`
+        SELECT p.id as user_id, p.nom, p.prenom, p.email, p.telephone,
+               s.id as student_id, s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
+               c.id as classe_id, c.nom as classe_nom, c.niveau
+        FROM students s
+        JOIN profiles p ON s.user_id = p.id
+        LEFT JOIN classes c ON s.classe_id = c.id
+        WHERE s.id = ?
+    `, [eleveId]);
 
-        // 1. Récupérer les infos de l'élève (en utilisant student.id en priorité)
-        let [eleveRows] = await pool.execute(`
+    if (eleveRows.length === 0) {
+        [eleveRows] = await pool.execute(`
             SELECT p.id as user_id, p.nom, p.prenom, p.email, p.telephone,
                    s.id as student_id, s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
                    c.id as classe_id, c.nom as classe_nom, c.niveau
-            FROM students s
-            JOIN profiles p ON s.user_id = p.id
+            FROM profiles p
+            JOIN students s ON s.user_id = p.id
             LEFT JOIN classes c ON s.classe_id = c.id
-            WHERE s.id = ?
+            WHERE p.id = ?
         `, [eleveId]);
+    }
 
-        // Fallback : si on n'a pas trouvé avec s.id, essayer avec p.id
-        if (eleveRows.length === 0) {
-            [eleveRows] = await pool.execute(`
-                SELECT p.id as user_id, p.nom, p.prenom, p.email, p.telephone,
-                       s.id as student_id, s.matricule, s.date_naissance, s.lieu_naissance, s.sexe,
-                       c.id as classe_id, c.nom as classe_nom, c.niveau
-                FROM profiles p
-                JOIN students s ON s.user_id = p.id
-                LEFT JOIN classes c ON s.classe_id = c.id
-                WHERE p.id = ?
-            `, [eleveId]);
+    if (eleveRows.length === 0) {
+        throw new Error('Élève non trouvé');
+    }
+
+    const eleve = eleveRows[0];
+
+    // 2. Récupérer les notes de l'élève pour ce semestre
+    const [grades] = await pool.execute(`
+        SELECT g.*
+        FROM grades g
+        WHERE g.student_id = ? AND g.semestre_id = ?
+    `, [eleve.student_id, semestreId]);
+
+    // 3. Récupérer les infos du semestre
+    const [semestreRows] = await pool.execute(`
+        SELECT * FROM semesters WHERE id = ?
+    `, [semestreId]);
+    const semestre = semestreRows[0] || { nom: 'Semestre 1', numero: 1 };
+
+    // 4. Calculer les moyennes par matière
+    const matieresMap = new Map();
+    grades.forEach(g => {
+        if (!matieresMap.has(g.matiere)) {
+            matieresMap.set(g.matiere, { notes: [], coefficients: [] });
         }
+        matieresMap.get(g.matiere).notes.push(parseFloat(g.note));
+        matieresMap.get(g.matiere).coefficients.push(parseFloat(g.coefficient || 1));
+    });
 
-        if (eleveRows.length === 0) {
-            return res.status(404).json({ message: 'Élève non trouvé' });
-        }
+    const matieresBulletin = [];
+    let totalPoints = 0;
+    let totalCoefs = 0;
 
-        const eleve = eleveRows[0];
+    matieresMap.forEach((value, matiere) => {
+        const notes = value.notes;
+        const coefs = value.coefficients;
+        const moyenne = notes.reduce((a, b) => a + b, 0) / notes.length;
+        let sommePonderee = 0;
+        let sommeCoefs = 0;
+        notes.forEach((n, i) => {
+            sommePonderee += n * coefs[i];
+            sommeCoefs += coefs[i];
+        });
+        const moyennePonderee = sommeCoefs > 0 ? sommePonderee / sommeCoefs : moyenne;
+        const coef = coefs[0] || 1;
 
-        // 2. Récupérer les notes de l'élève pour ce semestre
-        const [grades] = await pool.execute(`
-            SELECT g.*
-            FROM grades g
-            WHERE g.student_id = ? AND g.semestre_id = ?
-        `, [eleve.student_id, semestreId]);
-
-        // 3. Récupérer les infos du semestre
-        const [semestreRows] = await pool.execute(`
-            SELECT * FROM semesters WHERE id = ?
-        `, [semestreId]);
-        const semestre = semestreRows[0] || { nom: 'Semestre 1', numero: 1 };
-
-        // 4. Calculer les moyennes par matière
-        const matieresMap = new Map();
-        grades.forEach(g => {
-            if (!matieresMap.has(g.matiere)) {
-                matieresMap.set(g.matiere, { notes: [], coefficients: [] });
-            }
-            matieresMap.get(g.matiere).notes.push(parseFloat(g.note));
-            matieresMap.get(g.matiere).coefficients.push(parseFloat(g.coefficient || 1));
+        matieresBulletin.push({
+            matiere,
+            moyenne: parseFloat(moyenne.toFixed(3)),
+            moyenne_ponderee: parseFloat(moyennePonderee.toFixed(3)),
+            coefficient: coef,
+            total_points: parseFloat((moyennePonderee * coef).toFixed(2)),
+            notes: notes.map(n => parseFloat(n.toFixed(2)))
         });
 
-        const matieresBulletin = [];
-        let totalPoints = 0;
-        let totalCoefs = 0;
+        totalPoints += moyennePonderee * coef;
+        totalCoefs += coef;
+    });
 
-        matieresMap.forEach((value, matiere) => {
-            const notes = value.notes;
-            const coefs = value.coefficients;
-            const moyenne = notes.reduce((a, b) => a + b, 0) / notes.length;
-            let sommePonderee = 0;
-            let sommeCoefs = 0;
-            notes.forEach((n, i) => {
-                sommePonderee += n * coefs[i];
-                sommeCoefs += coefs[i];
-            });
-            const moyennePonderee = sommeCoefs > 0 ? sommePonderee / sommeCoefs : moyenne;
-            const coef = coefs[0] || 1;
+    const moyenneGenerale = totalCoefs > 0 ? parseFloat((totalPoints / totalCoefs).toFixed(3)) : 0;
 
-            matieresBulletin.push({
-                matiere,
-                moyenne: parseFloat(moyenne.toFixed(3)),
-                moyenne_ponderee: parseFloat(moyennePonderee.toFixed(3)),
-                coefficient: coef,
-                total_points: parseFloat((moyennePonderee * coef).toFixed(2)),
-                notes: notes.map(n => parseFloat(n.toFixed(2)))
-            });
+    // 5. Calcul du rang
+    const [classRanks] = await pool.execute(`
+        SELECT s.user_id,
+               (SELECT AVG(g.note * g.coefficient) / AVG(g.coefficient)
+                FROM grades g
+                WHERE g.student_id = s.user_id AND g.semestre_id = ?
+               ) as moyenne
+        FROM students s
+        WHERE s.classe_id = ?
+        ORDER BY moyenne DESC
+    `, [semestreId, eleve.classe_id]);
 
-            totalPoints += moyennePonderee * coef;
-            totalCoefs += coef;
-        });
+    let rang = 1;
+    let totalEleves = classRanks.length;
+    let moyennesEleves = classRanks.map(r => parseFloat(r.moyenne) || 0);
+    const moyenneClasse = moyennesEleves.length > 0 ? moyennesEleves.reduce((a, b) => a + b, 0) / moyennesEleves.length : 0;
+    const index = moyennesEleves.findIndex(m => m === moyenneGenerale);
+    if (index !== -1) rang = index + 1;
 
-        const moyenneGenerale = totalCoefs > 0 ? parseFloat((totalPoints / totalCoefs).toFixed(3)) : 0;
+    // 6. Appréciation
+    let appreciation = '';
+    if (moyenneGenerale >= 16) appreciation = 'EXCELLENT(E) ELEVE';
+    else if (moyenneGenerale >= 14) appreciation = 'TRES BON ELEVE';
+    else if (moyenneGenerale >= 12) appreciation = 'BON ELEVE';
+    else if (moyenneGenerale >= 10) appreciation = 'ASSEZ BON ELEVE';
+    else if (moyenneGenerale >= 8) appreciation = 'ELEVE PASSABLE';
+    else if (moyenneGenerale >= 6) appreciation = 'ELEVE FAIBLE';
+    else appreciation = 'ELEVE TRES FAIBLE';
 
-        // 5. Calcul du rang dans la classe pour ce semestre
-        const [classRanks] = await pool.execute(`
-            SELECT s.user_id,
-                   (SELECT AVG(g.note * g.coefficient) / AVG(g.coefficient)
-                    FROM grades g
-                    WHERE g.student_id = s.user_id AND g.semestre_id = ?
-                   ) as moyenne
-            FROM students s
-            WHERE s.classe_id = ?
-            ORDER BY moyenne DESC
-        `, [semestreId, eleve.classe_id]);
+    // 7. Absences et retards
+    const [absenceData] = await pool.execute(`
+        SELECT COUNT(*) as nb_absences,
+               SUM(CASE WHEN status = 'retard' THEN 1 ELSE 0 END) as nb_retards
+        FROM attendance
+        WHERE student_id = ? AND DATE BETWEEN ? AND ?
+    `, [eleve.student_id, semestre.date_debut, semestre.date_fin]);
 
-        let rang = 1;
-        let totalEleves = classRanks.length;
-        let moyennesEleves = classRanks.map(r => parseFloat(r.moyenne) || 0);
-        const moyenneClasse = moyennesEleves.length > 0 ? moyennesEleves.reduce((a, b) => a + b, 0) / moyennesEleves.length : 0;
-        const index = moyennesEleves.findIndex(m => m === moyenneGenerale);
-        if (index !== -1) rang = index + 1;
+    const nbAbsences = absenceData[0]?.nb_absences || 0;
+    const nbRetards = absenceData[0]?.nb_retards || 0;
 
-        // 6. Appréciation
-        let appreciation = '';
-        if (moyenneGenerale >= 16) appreciation = 'EXCELLENT(E) ELEVE';
-        else if (moyenneGenerale >= 14) appreciation = 'TRES BON ELEVE';
-        else if (moyenneGenerale >= 12) appreciation = 'BON ELEVE';
-        else if (moyenneGenerale >= 10) appreciation = 'ASSEZ BON ELEVE';
-        else if (moyenneGenerale >= 8) appreciation = 'ELEVE PASSABLE';
-        else if (moyenneGenerale >= 6) appreciation = 'ELEVE FAIBLE';
-        else appreciation = 'ELEVE TRES FAIBLE';
+    // 8. Construire l'objet bulletin
+    return {
+        eleve: {
+            ...eleve,
+            date_naissance: eleve.date_naissance ? new Date(eleve.date_naissance).toLocaleDateString('fr-FR') : '',
+            lieu_naissance: eleve.lieu_naissance || 'Non renseigné'
+        },
+        semestre: {
+            nom: semestre.nom,
+            numero: semestre.numero,
+            annee_scolaire: semestre.annee_scolaire
+        },
+        matieres: matieresBulletin,
+        moyenne_generale: moyenneGenerale,
+        rang: rang,
+        total_eleves: totalEleves,
+        moyenne_classe: parseFloat(moyenneClasse.toFixed(3)),
+        absences: nbAbsences,
+        retards: nbRetards,
+        appreciation: appreciation,
+        total_points: parseFloat(totalPoints.toFixed(2))
+    };
+}
 
-        // 7. Absences et retards (à partir de attendance)
-        const [absenceData] = await pool.execute(`
-            SELECT COUNT(*) as nb_absences,
-                   SUM(CASE WHEN status = 'retard' THEN 1 ELSE 0 END) as nb_retards
-            FROM attendance
-            WHERE student_id = ? AND DATE BETWEEN ? AND ?
-        `, [eleve.student_id, semestre.date_debut, semestre.date_fin]);
-
-        const nbAbsences = absenceData[0]?.nb_absences || 0;
-        const nbRetards = absenceData[0]?.nb_retards || 0;
-
-        // 8. Construire la réponse
-        res.json({
-            eleve: {
-                ...eleve,
-                date_naissance: eleve.date_naissance ? new Date(eleve.date_naissance).toLocaleDateString('fr-FR') : '',
-                lieu_naissance: eleve.lieu_naissance || 'Non renseigné'
-            },
-            semestre: {
-                nom: semestre.nom,
-                numero: semestre.numero,
-                annee_scolaire: semestre.annee_scolaire
-            },
-            matieres: matieresBulletin,
-            moyenne_generale: moyenneGenerale,
-            rang: rang,
-            total_eleves: totalEleves,
-            moyenne_classe: parseFloat(moyenneClasse.toFixed(3)),
-            absences: nbAbsences,
-            retards: nbRetards,
-            appreciation: appreciation,
-            total_points: parseFloat(totalPoints.toFixed(2))
-        });
-
+// ---------- Route GET (renvoie le JSON) ----------
+router.get('/:eleveId/:semestreId', authenticateToken, async (req, res) => {
+    try {
+        const { eleveId, semestreId } = req.params;
+        const data = await getBulletinData(eleveId, semestreId);
+        res.json(data);
     } catch (error) {
         console.error('Erreur bulletin:', error);
-        res.status(500).json({ message: 'Erreur lors de la génération du bulletin' });
+        res.status(404).json({ message: error.message || 'Données non trouvées' });
     }
 });
 
-// Générer un PDF (inchangé)
+// ---------- Route POST (génère le PDF) ----------
 router.post('/generate-pdf', authenticateToken, async (req, res) => {
     try {
         const { eleveId, semestreId } = req.body;
-
-        // Appel interne pour récupérer les données
-        const response = await fetch(`${req.protocol}://${req.get('host')}/api/bulletins/${eleveId}/${semestreId}`, {
-            headers: { Authorization: req.headers.authorization }
-        });
-        const data = await response.json();
+        const data = await getBulletinData(eleveId, semestreId);
 
         if (!data.eleve) {
             return res.status(404).json({ message: 'Données non trouvées' });
@@ -262,7 +260,7 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
         doc.end();
     } catch (error) {
         console.error('Erreur génération PDF:', error);
-        res.status(500).json({ message: 'Erreur lors de la génération du PDF' });
+        res.status(500).json({ message: error.message || 'Erreur lors de la génération du PDF' });
     }
 });
 
