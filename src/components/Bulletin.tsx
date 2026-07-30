@@ -1,10 +1,6 @@
-// Bulletin.tsx
+// src/components/Bulletin.tsx
 import React from 'react';
 import html2pdf from 'html2pdf.js';
-
-// ============================================================
-// 1. TYPES
-// ============================================================
 
 export interface Matiere {
   nom: string;
@@ -26,7 +22,7 @@ export interface BulletinData {
     matricule: string;
     classe: string;
     sexe: string;
-    photo?: string | null; // URL ou base64
+    photo?: string | null;
   };
   semestre: {
     nom: string;
@@ -51,19 +47,14 @@ export interface BulletinData {
   qrCodeUrl?: string | null;
 }
 
-// ============================================================
-// 2. COMPOSANT BULLETIN
-// ============================================================
-
 interface BulletinProps {
   data: BulletinData;
-  id?: string; // pour cibler l'élément lors de l'export PDF
+  id?: string;
 }
 
 const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) => {
   const { eleve, semestre, matieres, statistiques, mention, decision, observations, signatures, dateImpression, qrCodeUrl } = data;
 
-  // Couleur des notes
   const getNoteColor = (moyenne: number) => {
     if (moyenne >= 16) return 'text-green-700';
     if (moyenne >= 12) return 'text-blue-700';
@@ -71,7 +62,6 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
     return 'text-red-700';
   };
 
-  // Badge d'appréciation
   const getAppreciationBadge = (moyenne: number) => {
     if (moyenne >= 16) return { bg: 'bg-green-100', text: 'text-green-800', label: 'Excellent' };
     if (moyenne >= 14) return { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Très bon' };
@@ -81,15 +71,13 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
     return { bg: 'bg-red-100', text: 'text-red-800', label: 'Insuffisant' };
   };
 
-  // Cartes statistiques
   const statCards = [
     { title: 'Moyenne générale', value: statistiques.moyenneGenerale.toFixed(2) + ' / 20', icon: '📊', color: 'bg-blue-50 border-blue-200' },
     { title: 'Rang', value: `${statistiques.rang} / ${statistiques.totalEleves}`, icon: '🏅', color: 'bg-indigo-50 border-indigo-200' },
-    { title: 'Absences', value: statistiques.absences, icon: '📅', color: 'bg-red-50 border-red-200' },
-    { title: 'Retards', value: statistiques.retards, icon: '⏰', color: 'bg-orange-50 border-orange-200' },
+    { title: 'Absences', value: statistiques.absences, icon: '', color: 'bg-red-50 border-red-200' },
+    { title: 'Retards', value: statistiques.retards, icon: '', color: 'bg-orange-50 border-orange-200' },
   ];
 
-  // Progression globale
   const progression = Math.min(100, (statistiques.moyenneGenerale / 20) * 100);
 
   return (
@@ -102,12 +90,12 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
       <header className="flex items-start justify-between border-b-2 border-blue-900 pb-4 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-2xl">
-            🏫
+
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-blue-900">LYCÉE MODERNE DE DAKAR</h1>
-            <p className="text-sm text-gray-600">SICAP MBAO VILLA N°88 - Tél: +221 33 834 56 48</p>
-            <p className="text-sm text-gray-600">contact@lyceedakar.sn</p>
+            <h1 className="text-2xl font-bold text-blue-900">LYCÉE DE KOUSSANAR</h1>
+            <p className="text-sm text-gray-600">Tél : 33 982 10 21</p>
+            <p className="text-sm text-gray-600">contact@lyceedekoussanar.sn</p>
           </div>
         </div>
         <div className="text-right">
@@ -129,8 +117,8 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
             <p className="text-sm text-gray-500">Nom</p>
             <p className="font-semibold text-lg">{eleve.nom}</p>
             <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-              <span>📅 {eleve.dateNaissance}</span>
-              <span>📍 {eleve.lieuNaissance}</span>
+              <span> {eleve.dateNaissance}</span>
+              <span> {eleve.lieuNaissance}</span>
             </div>
           </div>
         </div>
@@ -186,7 +174,7 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
         </div>
       </section>
 
-      {/* ===== STATISTIQUES (cartes) ===== */}
+      {/* ===== STATISTIQUES ===== */}
       <section className="grid grid-cols-4 gap-4 mb-6">
         {statCards.map((card, idx) => (
           <div key={idx} className={`border rounded-lg p-4 ${card.color} flex items-center gap-3`}>
@@ -239,7 +227,7 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
         <p className="text-sm text-gray-600 whitespace-pre-wrap">{observations || 'Aucune observation particulière.'}</p>
       </section>
 
-      {/* ===== HISTOGRAMME SIMPLE ===== */}
+      {/* ===== HISTOGRAMME ===== */}
       <section className="mb-6">
         <h4 className="text-sm font-semibold text-gray-700 mb-2">Progression par matière</h4>
         <div className="grid grid-cols-5 gap-2">
@@ -271,15 +259,12 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
             <img src={qrCodeUrl} alt="QR Code" className="w-12 h-12 inline-block mt-1" />
           )}
           <p className="mt-1 text-gray-400 italic text-[10px]">Ce bulletin n'est délivré qu'une seule fois.</p>
+          <p className="mt-1 text-gray-400 text-[10px]">Lycée de Koussanar - Tél : 33 982 10 21</p>
         </div>
       </footer>
     </div>
   );
 };
-
-// ============================================================
-// 3. FONCTION D'EXPORT PDF
-// ============================================================
 
 export const exportBulletinPDF = (elementId: string, filename = 'bulletin.pdf') => {
   const element = document.getElementById(elementId);
@@ -287,20 +272,14 @@ export const exportBulletinPDF = (elementId: string, filename = 'bulletin.pdf') 
     console.error(`Élément avec l'id "${elementId}" non trouvé.`);
     return;
   }
-
   const opt = {
-    margin:       10,
-    filename:     filename,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, letterRendering: true, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    margin: 10,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-
   html2pdf().set(opt).from(element).save();
 };
-
-// ============================================================
-// 4. EXPORT PAR DÉFAUT
-// ============================================================
 
 export default Bulletin;
