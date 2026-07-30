@@ -1,86 +1,71 @@
 import pool from '../database/db.js';
 import { logError } from '../utils/logger.js';
+import jwt from 'jsonwebtoken';
 
-// Définition des permissions par rôle
+// ============================================================
+// 1. Définition des permissions par rôle
+// ============================================================
 const ROLE_PERMISSIONS = {
   admin: [
-    'manage_users',        // Gérer les utilisateurs
-    'enter_grades',        // Saisir les notes
-    'view_grades',         // Consulter les notes
-    'manage_payments',     // Gérer les paiements
-    'view_payments',       // Voir les paiements
-    'manage_schedule',     // Ajouter un emploi du temps
-    'manage_attendance',   // Enregistrer les présences
-    'send_message',        // Envoyer un message
-    'download_reports',    // Télécharger les bulletins
-    'manage_documents',    // Gérer tous les documents
+    'manage_users', 'enter_grades', 'view_grades',
+    'manage_payments', 'view_payments', 'manage_schedule',
+    'manage_attendance', 'send_message', 'download_reports',
+    'manage_documents',
   ],
   enseignant: [
-    'enter_grades',        // Saisir les notes (dans ses matières seulement)
-    'view_grades',         // Consulter les notes (de ses classes seulement)
-    'view_own_classes',    // Voir ses classes assignées
-    'view_own_students',   // Voir les élèves de ses classes
-    'manage_attendance',   // Enregistrer les présences (de ses classes seulement)
-    'send_message',        // Envoyer un message
-    'download_reports',    // Télécharger les bulletins
-    'upload_documents',    // Téléverser des documents
+    'enter_grades', 'view_grades', 'view_own_classes',
+    'view_own_students', 'manage_attendance', 'send_message',
+    'download_reports', 'upload_documents',
   ],
   eleve: [
-    'view_own_profile',    // Voir ses informations personnelles
-    'view_own_grades',     // Consulter ses propres notes
-    'view_own_schedule',   // Voir son emploi du temps
-    'view_own_attendance', // Voir ses absences et retards
-    'view_own_payments',   // Voir ses propres paiements (lecture seule)
-    'send_message',        // Envoyer un message
-    'download_own_reports', // Télécharger ses bulletins
-    'view_documents',      // Voir les documents
-    // Note: Les élèves ne peuvent RIEN modifier (pas de permission de modification)
+    'view_own_profile', 'view_own_grades', 'view_own_schedule',
+    'view_own_attendance', 'view_own_payments', 'send_message',
+    'download_own_reports', 'view_documents',
   ],
   comptable: [
-    'manage_payments',     // Gérer les paiements
-    'view_payments',       // Voir les paiements
-    'send_message',        // Envoyer un message
+    'manage_payments', 'view_payments', 'send_message',
   ],
   parent: [
-    'view_child_grades',   // Voir les notes de son enfant
-    'view_child_payments', // Voir les paiements de son enfant
-    'send_message',        // Envoyer un message
-    'download_child_reports', // Télécharger les bulletins de son enfant
+    'view_child_grades', 'view_child_payments', 'send_message',
+    'download_child_reports',
   ],
   surveillant: [
-    'view_grades',         // Consulter les notes
-    'send_message',        // Envoyer un message
+    'view_grades', 'send_message',
   ],
 };
 
-/**
- * Middleware pour vérifier une permission spécifique
- * @param {string} permission - La permission requise
- */
+// ============================================================
+// 2. Middleware d'authentification JWT
+// ============================================================
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Token d\'accès requis' });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: 'Token invalide' });
+  }
+};
+
+// ============================================================
+// 3. Middleware de vérification de permission (utilise les rôles du token)
+// ============================================================
 export const requirePermission = (permission) => {
-  return async (req, res, next) => {
+  return (req, res, next) => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user || !req.user.roles) {
         return res.status(401).json({ message: 'Authentification requise' });
       }
 
-      // Récupérer les rôles de l'utilisateur
-      const [userRoles] = await pool.execute(
-        'SELECT role FROM user_roles WHERE user_id = ?',
-        [req.user.id]
-      );
-
-      if (userRoles.length === 0) {
-        return res.status(403).json({ message: 'Aucun rôle assigné' });
-      }
-
-      const userRoleNames = userRoles.map(r => r.role);
-      req.user.roles = userRoleNames;
-
-      // Vérifier si l'utilisateur a la permission
+      const userRoles = req.user.roles;
       let hasPermission = false;
 
-      for (const role of userRoleNames) {
+      for (const role of userRoles) {
         const permissions = ROLE_PERMISSIONS[role] || [];
         if (permissions.includes(permission)) {
           hasPermission = true;
@@ -90,8 +75,8 @@ export const requirePermission = (permission) => {
 
       if (!hasPermission) {
         logError('RBAC - Permission denied', new Error(`User ${req.user.id} lacks permission: ${permission}`), req);
-        return res.status(403).json({ 
-          message: 'Accès refusé. Permission requise: ' + permission 
+        return res.status(403).json({
+          message: 'Accès refusé. Permission requise: ' + permission
         });
       }
 
@@ -103,34 +88,21 @@ export const requirePermission = (permission) => {
   };
 };
 
-/**
- * Middleware pour vérifier plusieurs permissions (OR - au moins une)
- * @param {string[]} permissions - Les permissions requises (au moins une)
- */
+// ============================================================
+// 4. Middleware "au moins une permission parmi plusieurs"
+// ============================================================
 export const requireAnyPermission = (...permissions) => {
-  return async (req, res, next) => {
+  return (req, res, next) => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user || !req.user.roles) {
         return res.status(401).json({ message: 'Authentification requise' });
       }
 
-      const [userRoles] = await pool.execute(
-        'SELECT role FROM user_roles WHERE user_id = ?',
-        [req.user.id]
-      );
-
-      if (userRoles.length === 0) {
-        return res.status(403).json({ message: 'Aucun rôle assigné' });
-      }
-
-      const userRoleNames = userRoles.map(r => r.role);
-      req.user.roles = userRoleNames;
-
-      // Vérifier si l'utilisateur a au moins une des permissions
+      const userRoles = req.user.roles;
       let hasPermission = false;
 
       for (const permission of permissions) {
-        for (const role of userRoleNames) {
+        for (const role of userRoles) {
           const rolePermissions = ROLE_PERMISSIONS[role] || [];
           if (rolePermissions.includes(permission)) {
             hasPermission = true;
@@ -142,8 +114,8 @@ export const requireAnyPermission = (...permissions) => {
 
       if (!hasPermission) {
         logError('RBAC - Permission denied', new Error(`User ${req.user.id} lacks any of: ${permissions.join(', ')}`), req);
-        return res.status(403).json({ 
-          message: 'Accès refusé. Permissions requises (au moins une): ' + permissions.join(', ') 
+        return res.status(403).json({
+          message: 'Accès refusé. Permissions requises (au moins une): ' + permissions.join(', ')
         });
       }
 
@@ -155,11 +127,9 @@ export const requireAnyPermission = (...permissions) => {
   };
 };
 
-/**
- * Middleware pour vérifier l'accès aux données propres à l'utilisateur
- * Pour les élèves: peut seulement voir ses propres données
- * Pour les parents: peut voir les données de ses enfants
- */
+// ============================================================
+// 5. Middleware de propriété / accès restreint (version simplifiée)
+// ============================================================
 export const requireOwnershipOrPermission = (resourceType) => {
   return async (req, res, next) => {
     try {
@@ -167,34 +137,26 @@ export const requireOwnershipOrPermission = (resourceType) => {
         return res.status(401).json({ message: 'Authentification requise' });
       }
 
-      const [userRoles] = await pool.execute(
-        'SELECT role FROM user_roles WHERE user_id = ?',
-        [req.user.id]
-      );
-
-      const userRoleNames = userRoles.map(r => r.role);
-      req.user.roles = userRoleNames;
+      const userRoles = req.user.roles || [];
 
       // Admin a toujours accès
-      if (userRoleNames.includes('admin')) {
+      if (userRoles.includes('admin')) {
         return next();
       }
 
-      // Vérifier selon le type de ressource
       if (resourceType === 'student') {
         const studentId = req.params.id || req.params.studentId || req.body.student_id;
-        
+
         if (!studentId) {
           return res.status(400).json({ message: 'ID étudiant requis' });
         }
 
-        // Pour les élèves: vérifier que c'est leur propre ID
-        if (userRoleNames.includes('eleve')) {
+        // Pour les élèves : vérifier que c'est leur propre ID
+        if (userRoles.includes('eleve')) {
           const [students] = await pool.execute(
             'SELECT user_id FROM students WHERE id = ?',
             [studentId]
           );
-          
           if (students.length > 0 && students[0].user_id === req.user.id) {
             return next();
           } else {
@@ -202,10 +164,9 @@ export const requireOwnershipOrPermission = (resourceType) => {
           }
         }
 
-        // Pour les parents: vérifier que c'est l'enfant du parent
-        if (userRoleNames.includes('parent')) {
-          // Note: Nécessiterait une table parent_students pour lier parents et enfants
-          // Pour l'instant, on vérifie juste que le parent a la permission
+        // Pour les parents : vérifier que c'est l'enfant (nécessite table parent_students)
+        if (userRoles.includes('parent')) {
+          // Vérifier si le parent a la permission de voir les notes de l'enfant
           const permissions = ROLE_PERMISSIONS.parent || [];
           if (permissions.includes('view_child_grades') || permissions.includes('view_child_payments')) {
             return next();
@@ -213,7 +174,6 @@ export const requireOwnershipOrPermission = (resourceType) => {
         }
       }
 
-      // Si on arrive ici, l'utilisateur n'a pas accès
       return res.status(403).json({ message: 'Accès refusé' });
     } catch (error) {
       logError('RBAC - Ownership check error', error, req);
@@ -222,12 +182,13 @@ export const requireOwnershipOrPermission = (resourceType) => {
   };
 };
 
-/**
- * Fonction utilitaire pour obtenir les permissions d'un utilisateur
- * Utile pour les endpoints qui retournent les permissions au frontend
- */
+// ============================================================
+// 6. Fonction utilitaire : obtenir les permissions d'un utilisateur
+// ============================================================
 export const getUserPermissions = async (userId) => {
   try {
+    // Si on veut récupérer depuis la base, ou bien depuis le token
+    // Ici on va chercher en base si besoin, sinon on peut utiliser les rôles du token
     const [userRoles] = await pool.execute(
       'SELECT role FROM user_roles WHERE user_id = ?',
       [userId]
@@ -250,6 +211,7 @@ export const getUserPermissions = async (userId) => {
   }
 };
 
-// Export des permissions pour utilisation dans d'autres modules
+// ============================================================
+// 7. Export des permissions (pour utilisation dans d'autres modules)
+// ============================================================
 export { ROLE_PERMISSIONS };
-
