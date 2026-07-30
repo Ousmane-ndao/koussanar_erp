@@ -35,19 +35,23 @@ const ROLE_PERMISSIONS = {
 };
 
 // ============================================================
-// 2. Middleware d'authentification JWT
+// 2. Middleware d'authentification JWT avec logs de débogage
 // ============================================================
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
+  console.log('🔑 Token reçu:', token ? token.substring(0, 20) + '...' : 'aucun');
   if (!token) {
     return res.status(401).json({ message: 'Token d\'accès requis' });
   }
   try {
+    console.log('🔐 JWT_SECRET utilisé:', process.env.JWT_SECRET ? 'défini' : 'NON DÉFINI');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ Token décodé:', decoded);
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('❌ Erreur JWT:', error.message);
     return res.status(403).json({ message: 'Token invalide' });
   }
 };
@@ -139,7 +143,6 @@ export const requireOwnershipOrPermission = (resourceType) => {
 
       const userRoles = req.user.roles || [];
 
-      // Admin a toujours accès
       if (userRoles.includes('admin')) {
         return next();
       }
@@ -151,7 +154,6 @@ export const requireOwnershipOrPermission = (resourceType) => {
           return res.status(400).json({ message: 'ID étudiant requis' });
         }
 
-        // Pour les élèves : vérifier que c'est leur propre ID
         if (userRoles.includes('eleve')) {
           const [students] = await pool.execute(
             'SELECT user_id FROM students WHERE id = ?',
@@ -164,9 +166,7 @@ export const requireOwnershipOrPermission = (resourceType) => {
           }
         }
 
-        // Pour les parents : vérifier que c'est l'enfant (nécessite table parent_students)
         if (userRoles.includes('parent')) {
-          // Vérifier si le parent a la permission de voir les notes de l'enfant
           const permissions = ROLE_PERMISSIONS.parent || [];
           if (permissions.includes('view_child_grades') || permissions.includes('view_child_payments')) {
             return next();
@@ -183,12 +183,10 @@ export const requireOwnershipOrPermission = (resourceType) => {
 };
 
 // ============================================================
-// 6. Fonction utilitaire : obtenir les permissions d'un utilisateur
+// 6. Fonction utilitaire
 // ============================================================
 export const getUserPermissions = async (userId) => {
   try {
-    // Si on veut récupérer depuis la base, ou bien depuis le token
-    // Ici on va chercher en base si besoin, sinon on peut utiliser les rôles du token
     const [userRoles] = await pool.execute(
       'SELECT role FROM user_roles WHERE user_id = ?',
       [userId]
@@ -212,6 +210,6 @@ export const getUserPermissions = async (userId) => {
 };
 
 // ============================================================
-// 7. Export des permissions (pour utilisation dans d'autres modules)
+// 7. Export
 // ============================================================
 export { ROLE_PERMISSIONS };
