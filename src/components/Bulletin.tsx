@@ -72,8 +72,8 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
   };
 
   const statCards = [
-    { title: 'Moyenne générale', value: statistiques.moyenneGenerale.toFixed(2) + ' / 20', icon: '📊', color: 'bg-blue-50 border-blue-200' },
-    { title: 'Rang', value: `${statistiques.rang} / ${statistiques.totalEleves}`, icon: '🏅', color: 'bg-indigo-50 border-indigo-200' },
+    { title: 'Moyenne générale', value: statistiques.moyenneGenerale.toFixed(2) + ' / 20', icon: '', color: 'bg-blue-50 border-blue-200' },
+    { title: 'Rang', value: `${statistiques.rang} / ${statistiques.totalEleves}`, icon: '', color: 'bg-indigo-50 border-indigo-200' },
     { title: 'Absences', value: statistiques.absences, icon: '', color: 'bg-red-50 border-red-200' },
     { title: 'Retards', value: statistiques.retards, icon: '', color: 'bg-orange-50 border-orange-200' },
   ];
@@ -200,7 +200,7 @@ const Bulletin: React.FC<BulletinProps> = ({ data, id = 'bulletin-content' }) =>
 
       {/* ===== MENTION ===== */}
       <section className="bg-green-50 border border-green-200 rounded-lg p-6 text-center mb-6">
-        <div className="text-5xl mb-2">🏆</div>
+        <div className="text-5xl mb-2"></div>
         <h3 className="text-2xl font-extrabold text-green-800 uppercase">{mention}</h3>
         <p className="text-green-700 mt-1">Excellent élève, sérieux et discipliné. Continuez ainsi.</p>
       </section>
