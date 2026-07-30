@@ -47,16 +47,17 @@ async function getBulletinData(eleveId, semestreId) {
     const [semestreRows] = await pool.execute(`
         SELECT * FROM semesters WHERE id = ?
     `, [semestreId]);
-    const semestre = semestreRows[0] || { nom: 'Semestre 1', numero: 1 };
+    const semestre = semestreRows[0] || { nom: 'Semestre 1', numero: 1, annee_scolaire: '2026-2027' };
 
     // 4. Calculer les moyennes par matière
     const matieresMap = new Map();
     grades.forEach(g => {
-        if (!matieresMap.has(g.matiere)) {
-            matieresMap.set(g.matiere, { notes: [], coefficients: [] });
+        const key = g.matiere;
+        if (!matieresMap.has(key)) {
+            matieresMap.set(key, { notes: [], coefficients: [] });
         }
-        matieresMap.get(g.matiere).notes.push(parseFloat(g.note));
-        matieresMap.get(g.matiere).coefficients.push(parseFloat(g.coefficient || 1));
+        matieresMap.get(key).notes.push(parseFloat(g.note));
+        matieresMap.get(key).coefficients.push(parseFloat(g.coefficient || 1));
     });
 
     const matieresBulletin = [];
@@ -66,19 +67,21 @@ async function getBulletinData(eleveId, semestreId) {
     matieresMap.forEach((value, matiere) => {
         const notes = value.notes;
         const coefs = value.coefficients;
-        const moyenne = notes.reduce((a, b) => a + b, 0) / notes.length;
+        // Moyenne simple des notes (pour la colonne "Devoir")
+        const moyenneSimple = notes.reduce((a, b) => a + b, 0) / notes.length;
+        // Moyenne pondérée (pour la colonne "Moy/20")
         let sommePonderee = 0;
         let sommeCoefs = 0;
         notes.forEach((n, i) => {
             sommePonderee += n * coefs[i];
             sommeCoefs += coefs[i];
         });
-        const moyennePonderee = sommeCoefs > 0 ? sommePonderee / sommeCoefs : moyenne;
+        const moyennePonderee = sommeCoefs > 0 ? sommePonderee / sommeCoefs : moyenneSimple;
         const coef = coefs[0] || 1;
 
         matieresBulletin.push({
             matiere,
-            moyenne: parseFloat(moyenne.toFixed(3)),
+            moyenne_simple: parseFloat(moyenneSimple.toFixed(3)),
             moyenne_ponderee: parseFloat(moyennePonderee.toFixed(3)),
             coefficient: coef,
             total_points: parseFloat((moyennePonderee * coef).toFixed(2)),
@@ -91,7 +94,7 @@ async function getBulletinData(eleveId, semestreId) {
 
     const moyenneGenerale = totalCoefs > 0 ? parseFloat((totalPoints / totalCoefs).toFixed(3)) : 0;
 
-    // 5. Calcul du rang
+    // 5. Calcul du rang dans la classe pour ce semestre
     const [classRanks] = await pool.execute(`
         SELECT s.user_id,
                (SELECT AVG(g.note * g.coefficient) / AVG(g.coefficient)
@@ -177,6 +180,7 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Données non trouvées' });
         }
 
+        // Création du document PDF
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
@@ -187,44 +191,77 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
             res.send(pdfData);
         });
 
-        // En-tête
-        doc.fontSize(16).text('BULLETIN DE NOTES', { align: 'center' });
+        // ----- EN-TÊTE -----
+        doc.fontSize(14).font('Helvetica-Bold').text('BULLETIN DE NOTES', { align: 'center' });
         doc.moveDown(0.5);
-        doc.fontSize(12).text(`Lycée de Koussanar - ${data.semestre.annee_scolaire}`, { align: 'center' });
-        doc.moveDown(0.5);
+        doc.fontSize(11).font('Helvetica').text(`Année Scolaire: ${data.semestre.annee_scolaire} - ${data.semestre.nom}`, { align: 'center' });
+        doc.moveDown(0.8);
 
-        doc.fontSize(10);
-        doc.text(`Prénom: ${data.eleve.prenom}`, { continued: true });
-        doc.text(`  Nom: ${data.eleve.nom}`, { align: 'right' });
-        doc.text(`Né(e) le: ${data.eleve.date_naissance} à ${data.eleve.lieu_naissance}`);
-        doc.text(`Classe: ${data.eleve.classe_nom} (${data.eleve.niveau || ''})`);
-        doc.text(`Matricule: ${data.eleve.matricule}`);
-        doc.text(`Semestre: ${data.semestre.nom}`);
-        doc.moveDown(0.5);
+        // Informations élève
+        const leftX = 50;
+        let y = doc.y;
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`Prénoms: ${data.eleve.prenom || ''}`, leftX, y);
+        doc.text(`Né(e) le: ${data.eleve.date_naissance || ''}`, leftX + 300, y);
+        y += 16;
+        doc.text(`Nom: ${data.eleve.nom || ''}`, leftX, y);
+        doc.text(`Matricule: ${data.eleve.matricule || ''}`, leftX + 300, y);
+        y += 16;
+        doc.text(`Classe: ${data.eleve.classe_nom || ''} (${data.eleve.niveau || ''})`, leftX, y);
+        doc.text(`Nbre d'élèves: ${data.total_eleves}`, leftX + 300, y);
+        y += 20;
 
-        const tableTop = doc.y;
-        const col1 = 40;
-        const col2 = 200;
-        const col3 = 100;
-        const col4 = 80;
-        const col5 = 80;
+        // ----- TABLEAU DES NOTES -----
+        const tableTop = y;
+        const col1 = 50;    // Discipline
+        const col2 = 160;   // Devoir (moyenne simple)
+        const col3 = 210;   // Comp (coefficient)
+        const col4 = 260;   // Moy/20 (moyenne pondérée)
+        const col5 = 320;   // Coef (même que comp)
+        const col6 = 375;   // Moy x T.HR (total points)
+        const col7 = 450;   // Rang
+        const col8 = 490;   // Appréciations (text)
+        const rowHeight = 20;
 
-        doc.font('Helvetica-Bold');
-        doc.text('Disciplines', col1, tableTop);
-        doc.text('Moyenne', col2, tableTop);
-        doc.text('Coeff', col3, tableTop);
-        doc.text('Total', col4, tableTop);
-        doc.text('Appréciation', col5, tableTop);
+        // En-têtes du tableau
+        doc.font('Helvetica-Bold').fontSize(8);
+        doc.text('DISCIPLINES', col1, tableTop);
+        doc.text('Devoir', col2, tableTop);
+        doc.text('Comp', col3, tableTop);
+        doc.text('Moy/20', col4, tableTop);
+        doc.text('Coef', col5, tableTop);
+        doc.text('Moy x T.HR', col6, tableTop);
+        doc.text('Rang', col7, tableTop);
+        doc.text('Appréciations', col8, tableTop);
 
-        doc.moveTo(40, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+        // Ligne horizontale sous en-têtes
+        doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
 
-        doc.font('Helvetica');
-        let yPos = tableTop + 25;
-        data.matieres.forEach(m => {
-            doc.text(m.matiere, col1, yPos);
-            doc.text(m.moyenne_ponderee.toFixed(3), col2, yPos);
-            doc.text(m.coefficient, col3, yPos);
-            doc.text(m.total_points.toFixed(2), col4, yPos);
+        let yPos = tableTop + 18;
+        doc.font('Helvetica').fontSize(8);
+        let totalCoefs = 0;
+        let totalPoints = 0;
+
+        // Trier les matières par ordre alphabétique
+        const matieresSorted = data.matieres.sort((a, b) => a.matiere.localeCompare(b.matiere));
+
+        matieresSorted.forEach((m, index) => {
+            const y = yPos + index * rowHeight;
+            // Discipline
+            doc.text(m.matiere || '', col1, y);
+            // Devoir (moyenne simple)
+            doc.text(m.moyenne_simple.toFixed(2), col2, y);
+            // Comp (coefficient)
+            doc.text(m.coefficient.toFixed(1), col3, y);
+            // Moy/20 (moyenne pondérée)
+            doc.text(m.moyenne_ponderee.toFixed(2), col4, y);
+            // Coef (même)
+            doc.text(m.coefficient.toFixed(1), col5, y);
+            // Moy x T.HR (total points)
+            doc.text(m.total_points.toFixed(2), col6, y);
+            // Rang (non disponible par matière, on met un tiret)
+            doc.text('-', col7, y);
+            // Appréciation
             let appr = '';
             if (m.moyenne_ponderee >= 16) appr = 'Excellent';
             else if (m.moyenne_ponderee >= 14) appr = 'Très bon';
@@ -233,31 +270,47 @@ router.post('/generate-pdf', authenticateToken, async (req, res) => {
             else if (m.moyenne_ponderee >= 8) appr = 'Passable';
             else if (m.moyenne_ponderee >= 6) appr = 'Faible';
             else appr = 'Très faible';
-            doc.text(appr, col5, yPos);
-            yPos += 20;
+            doc.text(appr, col8, y);
+
+            totalCoefs += m.coefficient;
+            totalPoints += m.total_points;
         });
 
-        doc.moveTo(40, yPos + 5).lineTo(550, yPos + 5).stroke();
-        yPos += 15;
+        // Ligne horizontale de fin de tableau
+        const lastY = yPos + matieresSorted.length * rowHeight + 5;
+        doc.moveTo(50, lastY).lineTo(550, lastY).stroke();
 
-        doc.font('Helvetica-Bold');
-        doc.text(`Moyenne Générale: ${data.moyenne_generale.toFixed(3)} / 20`, 40, yPos);
-        doc.text(`Rang: ${data.rang} / ${data.total_eleves}`, 250, yPos);
-        doc.text(`Moyenne de la classe: ${data.moyenne_classe.toFixed(3)}`, 400, yPos);
-        yPos += 20;
+        // Tracer les verticales (bordures de colonnes)
+        [col1, col2, col3, col4, col5, col6, col7, col8, 550].forEach(x => {
+            doc.moveTo(x, tableTop).lineTo(x, lastY).stroke();
+        });
 
-        doc.text(`Absences: ${data.absences}`, 40, yPos);
-        doc.text(`Retards: ${data.retards}`, 200, yPos);
-        yPos += 20;
+        // ----- RÉSUMÉ -----
+        let resumeY = lastY + 15;
+        doc.font('Helvetica-Bold').fontSize(9);
+        const moyenneGen = data.moyenne_generale;
+        doc.text(`Moyenne générale: ${moyenneGen.toFixed(2)} / 20`, 50, resumeY);
+        doc.text(`Rang: ${data.rang} / ${data.total_eleves}`, 250, resumeY);
+        doc.text(`Retards: ${data.retards}`, 400, resumeY);
+        resumeY += 18;
+        doc.text(`Absences: ${data.absences}`, 50, resumeY);
+        resumeY += 18;
 
-        doc.font('Helvetica-Bold').fontSize(12);
-        doc.text(`Appréciation: ${data.appreciation}`, 40, yPos);
+        doc.font('Helvetica-Bold').fontSize(11);
+        doc.text(`Appréciation: ${data.appreciation}`, 50, resumeY);
 
-        doc.moveDown(2);
-        doc.fontSize(8).text('Lycée de Koussanar - Système ERP', 40, 750, { align: 'center' });
-        doc.text('SICAP MBAO VILLA N°88 - Tél: +221338345648', { align: 'center' });
+        // ----- OBSERVATIONS (vide pour l'instant) -----
+        resumeY += 30;
+        doc.fontSize(9).font('Helvetica');
+        doc.text('Observations du conseil des professeurs:', 50, resumeY);
+        // On pourrait ajouter un champ libre ici si nécessaire.
+
+        // ----- PIED DE PAGE -----
+        doc.moveDown(3);
+        doc.fontSize(8).text('Lycée de Koussanar - Système ERP', 50, 750, { align: 'center' });
 
         doc.end();
+
     } catch (error) {
         console.error('Erreur génération PDF:', error);
         res.status(500).json({ message: error.message || 'Erreur lors de la génération du PDF' });
