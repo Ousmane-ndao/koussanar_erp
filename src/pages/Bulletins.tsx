@@ -1,32 +1,35 @@
+// Bulletins.tsx
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { FileDown, Printer } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { FileDown } from "lucide-react";
+import Bulletin, { exportBulletinPDF, BulletinData } from "@/components/Bulletin";
 
 const Bulletins = () => {
   const { toast } = useToast();
   const [selectedClasse, setSelectedClasse] = useState<string>("");
   const [selectedSemestre, setSelectedSemestre] = useState<string>("");
   const [selectedEleve, setSelectedEleve] = useState<string>("");
-  const [bulletinData, setBulletinData] = useState<any>(null);
+  const [bulletinData, setBulletinData] = useState<BulletinData | null>(null);
 
+  // Récupération des classes
   const { data: classes = [] } = useQuery({
     queryKey: ["classes"],
     queryFn: () => api.getClasses(),
   });
 
+  // Récupération des semestres
   const { data: semestres = [] } = useQuery({
     queryKey: ["semesters"],
     queryFn: () => api.getSemesters({ actif: true }),
   });
 
+  // Récupération des élèves (selon classe sélectionnée)
   const { data: students = [] } = useQuery({
     queryKey: ["students", selectedClasse],
     queryFn: () => api.getStudents(),
@@ -37,6 +40,7 @@ const Bulletins = () => {
     ? students.filter((s: any) => s.classe_id === selectedClasse)
     : [];
 
+  // Génération du bulletin
   const generateBulletin = async () => {
     if (!selectedEleve || !selectedSemestre) {
       toast({
@@ -49,7 +53,53 @@ const Bulletins = () => {
 
     try {
       const data = await api.request<any>(`/bulletins/${selectedEleve}/${selectedSemestre}`);
-      setBulletinData(data);
+
+      // Transformation des données vers le format BulletinData
+      const formattedData: BulletinData = {
+        eleve: {
+          prenom: data.eleve.prenom,
+          nom: data.eleve.nom,
+          dateNaissance: data.eleve.date_naissance,
+          lieuNaissance: data.eleve.lieu_naissance,
+          matricule: data.eleve.matricule,
+          classe: data.eleve.classe_nom,
+          sexe: data.eleve.sexe,
+          photo: null,
+        },
+        semestre: {
+          nom: data.semestre.nom,
+          anneeScolaire: data.semestre.annee_scolaire,
+        },
+        matieres: data.matieres.map((m: any) => ({
+          nom: m.matiere,
+          devoir: m.moyenne_simple || 0,
+          composition: m.moyenne_ponderee || 0,
+          moyenne: m.moyenne_ponderee || 0,
+          coefficient: m.coefficient || 1,
+          points: m.total_points || 0,
+          rang: null,
+          appreciation: '',
+        })),
+        statistiques: {
+          moyenneGenerale: data.moyenne_generale,
+          rang: data.rang,
+          totalEleves: data.total_eleves,
+          absences: data.absences,
+          retards: data.retards,
+        },
+        mention: data.appreciation || 'Élève très faible',
+        decision: data.moyenne_generale >= 10 ? 'admise' : 'redoublement',
+        observations: 'Aucune observation particulière.',
+        signatures: {
+          professeur: '',
+          directeur: '',
+        },
+        dateImpression: new Date().toLocaleDateString('fr-FR'),
+        qrCodeUrl: null,
+      };
+
+      setBulletinData(formattedData);
+      toast({ title: "Succès", description: "Bulletin généré avec succès" });
     } catch (error: any) {
       toast({
         title: "Erreur",
@@ -59,39 +109,9 @@ const Bulletins = () => {
     }
   };
 
-  const downloadPDF = async () => {
-    if (!selectedEleve || !selectedSemestre) return;
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/bulletins/generate-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ eleveId: selectedEleve, semestreId: selectedSemestre }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Erreur');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `bulletin_${selectedEleve}_${selectedSemestre}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors du téléchargement",
-        variant: "destructive",
-      });
-    }
+  const handleExportPDF = () => {
+    if (!bulletinData) return;
+    exportBulletinPDF('bulletin-pdf-content', `bulletin_${bulletinData.eleve.matricule}_${bulletinData.semestre.nom}.pdf`);
   };
 
   return (
@@ -102,6 +122,7 @@ const Bulletins = () => {
           <p className="text-muted-foreground">Générez les bulletins semestriels des élèves</p>
         </div>
 
+        {/* Formulaire de sélection */}
         <Card>
           <CardHeader>
             <CardTitle>Critères de génération</CardTitle>
@@ -162,7 +183,7 @@ const Bulletins = () => {
                   Générer le bulletin
                 </Button>
                 {bulletinData && (
-                  <Button variant="outline" onClick={downloadPDF}>
+                  <Button variant="outline" onClick={handleExportPDF}>
                     <FileDown className="w-4 h-4 mr-2" />
                     PDF
                   </Button>
@@ -172,70 +193,11 @@ const Bulletins = () => {
           </CardContent>
         </Card>
 
+        {/* Affichage du bulletin avec le nouveau composant premium */}
         {bulletinData && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Bulletin de {bulletinData.eleve.prenom} {bulletinData.eleve.nom}</CardTitle>
-              <CardDescription>
-                {bulletinData.eleve.classe_nom} - {bulletinData.semestre.nom} - Année {bulletinData.semestre.annee_scolaire}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><strong>Matricule:</strong> {bulletinData.eleve.matricule}</div>
-                <div><strong>Né(e) le:</strong> {bulletinData.eleve.date_naissance}</div>
-                <div><strong>Lieu:</strong> {bulletinData.eleve.lieu_naissance}</div>
-                <div><strong>Sexe:</strong> {bulletinData.eleve.sexe}</div>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Matière</TableHead>
-                    <TableHead>Moyenne</TableHead>
-                    <TableHead>Coeff</TableHead>
-                    <TableHead>Total points</TableHead>
-                    <TableHead>Appréciation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bulletinData.matieres.map((m: any) => (
-                    <TableRow key={m.matiere}>
-                      <TableCell>{m.matiere}</TableCell>
-                      <TableCell>{m.moyenne_ponderee.toFixed(3)}</TableCell>
-                      <TableCell>{m.coefficient}</TableCell>
-                      <TableCell>{m.total_points.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          m.moyenne_ponderee >= 16 ? 'default' :
-                          m.moyenne_ponderee >= 14 ? 'secondary' :
-                          m.moyenne_ponderee >= 12 ? 'outline' :
-                          'destructive'
-                        }>
-                          {m.moyenne_ponderee >= 16 ? 'Excellent' :
-                           m.moyenne_ponderee >= 14 ? 'Très bon' :
-                           m.moyenne_ponderee >= 12 ? 'Bon' :
-                           m.moyenne_ponderee >= 10 ? 'Assez bien' :
-                           m.moyenne_ponderee >= 8 ? 'Passable' : 'Faible'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm pt-4 border-t">
-                <div><strong>Moyenne générale:</strong> {bulletinData.moyenne_generale.toFixed(3)}/20</div>
-                <div><strong>Rang:</strong> {bulletinData.rang}/{bulletinData.total_eleves}</div>
-                <div><strong>Moyenne classe:</strong> {bulletinData.moyenne_classe.toFixed(3)}</div>
-                <div><strong>Absences:</strong> {bulletinData.absences} | <strong>Retards:</strong> {bulletinData.retards}</div>
-              </div>
-
-              <div className="p-4 bg-muted rounded-lg text-center">
-                <p className="font-bold text-lg">{bulletinData.appreciation}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div>
+            <Bulletin data={bulletinData} id="bulletin-pdf-content" />
+          </div>
         )}
       </div>
     </DashboardLayout>
