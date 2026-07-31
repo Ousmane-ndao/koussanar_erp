@@ -1,3 +1,4 @@
+console.log('🚀 SERVEUR DÉMARRÉ AVEC LES ROUTES SCHOOL-YEARS ET ACADEMIC-PERIODS');
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
