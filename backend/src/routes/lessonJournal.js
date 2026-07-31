@@ -5,6 +5,8 @@ import { authenticateToken, requirePermission } from '../middleware/rbac.js';
 
 const router = express.Router();
 
+console.log('✅ [lessonJournal] Routes chargées');
+
 // Routes GET
 router.get('/', authenticateToken, lessonController.getAllLessons);
 router.get('/:id', authenticateToken, lessonController.getLessonById);
