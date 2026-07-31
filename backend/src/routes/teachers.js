@@ -3,16 +3,18 @@ import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import pool from '../database/db.js';
 import { generateUUID } from '../utils/uuid.js';
-import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { authenticateToken, requirePermission } from '../middleware/rbac.js';
 import { generateUniqueEmail, generatePassword } from '../utils/generate-email.js';
 
 const router = express.Router();
 
-// Get all teachers
+// ============================================================
+// GET /api/teachers - Liste des enseignants
+// ============================================================
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const query = `
-      SELECT t.*, 
+      SELECT t.*,
              p.nom, p.prenom, p.email, p.telephone, p.adresse
       FROM teachers t
       LEFT JOIN profiles p ON t.user_id = p.id
@@ -26,7 +28,9 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get teacher by ID
+// ============================================================
+// GET /api/teachers/:id - Détail d'un enseignant
+// ============================================================
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const [teachers] = await pool.execute(
@@ -48,12 +52,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Create teacher
-router.post('/', authenticateToken, requireRole('admin'), [
+// ============================================================
+// POST /api/teachers - Création d'un enseignant (admin uniquement)
+// ============================================================
+router.post('/', authenticateToken, requirePermission('manage_users'), [
   body('matricule').trim().notEmpty(),
   body('nom').trim().notEmpty(),
   body('prenom').trim().notEmpty(),
-  body('email').optional().isEmail().normalizeEmail(), // Email optionnel, sera généré automatiquement
+  body('email').optional().isEmail().normalizeEmail(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -63,12 +69,11 @@ router.post('/', authenticateToken, requireRole('admin'), [
 
     const { matricule, nom, prenom, email: providedEmail, telephone, adresse, specialite, date_embauche } = req.body;
 
-    // Check if matricule exists
+    // Vérifier l'unicité du matricule
     const [existing] = await pool.execute(
       'SELECT id FROM teachers WHERE matricule = ?',
       [matricule]
     );
-
     if (existing.length > 0) {
       return res.status(400).json({ message: 'Ce matricule existe déjà' });
     }
@@ -78,48 +83,45 @@ router.post('/', authenticateToken, requireRole('admin'), [
     if (!email) {
       email = await generateUniqueEmail(pool, prenom, nom, 5);
     } else {
-      // Vérifier si l'email fourni existe déjà
       const [existingEmail] = await pool.execute(
         'SELECT id FROM profiles WHERE email = ?',
         [email]
       );
-
       if (existingEmail.length > 0) {
         return res.status(400).json({ message: 'Cet email est déjà enregistré' });
       }
     }
 
-    // Générer un mot de passe unique de 6 caractères
+    // Générer un mot de passe de 6 caractères
     const passwordPlain = generatePassword(6);
     const password = await bcrypt.hash(passwordPlain, 10);
 
-    // Create profile
+    // Créer le profil
     const userId = generateUUID();
-
     await pool.execute(
       'INSERT INTO profiles (id, email, password, nom, prenom, telephone, adresse) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [userId, email, password, nom, prenom, telephone || null, adresse || null]
     );
 
-    // Assign teacher role
+    // Assigner le rôle "enseignant"
     await pool.execute(
       'INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, ?)',
       [generateUUID(), userId, 'enseignant']
     );
 
-    // Create teacher
+    // Créer l'enseignant
     const teacherId = generateUUID();
     await pool.execute(
-      `INSERT INTO teachers (id, user_id, matricule, specialite, date_embauche, statut) 
+      `INSERT INTO teachers (id, user_id, matricule, specialite, date_embauche, statut)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [teacherId, userId, matricule, specialite || null, date_embauche || null, 'actif']
     );
 
-    res.status(201).json({ 
-      message: 'Enseignant créé avec succès', 
+    res.status(201).json({
+      message: 'Enseignant créé avec succès',
       id: teacherId,
       email: email,
-      password: passwordPlain, // Retourner le mot de passe en clair pour l'affichage
+      password: passwordPlain, // Retourné en clair pour l'affichage
       info: 'Email et mot de passe générés automatiquement'
     });
   } catch (error) {
@@ -128,13 +130,16 @@ router.post('/', authenticateToken, requireRole('admin'), [
   }
 });
 
-// Update teacher
-router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+// ============================================================
+// PUT /api/teachers/:id - Modification d'un enseignant (admin)
+// ============================================================
+router.put('/:id', authenticateToken, requirePermission('manage_users'), async (req, res) => {
   try {
-    const { specialite, date_embauche, statut } = req.body;
+    const { specialite, date_embauche, statut, nom, prenom, telephone, adresse } = req.body;
 
+    // Mettre à jour les champs de la table teachers
     await pool.execute(
-      `UPDATE teachers SET 
+      `UPDATE teachers SET
         specialite = COALESCE(?, specialite),
         date_embauche = COALESCE(?, date_embauche),
         statut = COALESCE(?, statut)
@@ -142,21 +147,18 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
       [specialite || null, date_embauche || null, statut || null, req.params.id]
     );
 
-    // Update profile if provided
-    const { nom, prenom, telephone, adresse } = req.body;
-    if (nom || prenom || telephone || adresse) {
-      const [teacher] = await pool.execute('SELECT user_id FROM teachers WHERE id = ?', [req.params.id]);
-      if (teacher.length > 0) {
-        await pool.execute(
-          `UPDATE profiles SET 
-            nom = COALESCE(?, nom),
-            prenom = COALESCE(?, prenom),
-            telephone = COALESCE(?, telephone),
-            adresse = COALESCE(?, adresse)
-           WHERE id = ?`,
-          [nom || null, prenom || null, telephone || null, adresse || null, teacher[0].user_id]
-        );
-      }
+    // Mettre à jour le profil associé
+    const [teacher] = await pool.execute('SELECT user_id FROM teachers WHERE id = ?', [req.params.id]);
+    if (teacher.length > 0) {
+      await pool.execute(
+        `UPDATE profiles SET
+          nom = COALESCE(?, nom),
+          prenom = COALESCE(?, prenom),
+          telephone = COALESCE(?, telephone),
+          adresse = COALESCE(?, adresse)
+         WHERE id = ?`,
+        [nom || null, prenom || null, telephone || null, adresse || null, teacher[0].user_id]
+      );
     }
 
     res.json({ message: 'Enseignant modifié avec succès' });
@@ -166,9 +168,13 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
   }
 });
 
-// Delete teacher
-router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+// ============================================================
+// DELETE /api/teachers/:id - Suppression d'un enseignant (admin)
+// ============================================================
+router.delete('/:id', authenticateToken, requirePermission('manage_users'), async (req, res) => {
   try {
+    // Supprimer les enregistrements liés (profiles, user_roles) si nécessaire
+    // Attention : les foreign keys doivent être gérées
     await pool.execute('DELETE FROM teachers WHERE id = ?', [req.params.id]);
     res.json({ message: 'Enseignant supprimé avec succès' });
   } catch (error) {
@@ -178,4 +184,3 @@ router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) 
 });
 
 export default router;
-

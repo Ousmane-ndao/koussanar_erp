@@ -22,6 +22,10 @@ import exportRoutes from './routes/export.js';
 import announcementsRoutes from './routes/announcements.js';
 import bulletinsRoutes from './routes/bulletins.js';
 
+import subjectsRoutes from './routes/subjects.js';
+import roomsRoutes from './routes/rooms.js';
+
+
 // Nouvelles routes pour les années scolaires et périodes
 import schoolYearRoutes from './routes/schoolYearRoutes.js';
 import academicPeriodRoutes from './routes/academicPeriodRoutes.js';
@@ -30,6 +34,10 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+// ...
+app.use('/api/teachers', teachersRoutes);
+app.use('/api/subjects', subjectsRoutes);
+app.use('/api/rooms', roomsRoutes);
 
 // Middleware
 app.use(helmet());
