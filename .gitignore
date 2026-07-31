@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 "bulletin.pdf" 
 "curl" 
+"bulletin.pdf" 
+"curl" 
+"backend/data.json" 
+"data.json/" 

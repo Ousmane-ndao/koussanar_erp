@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import helmet from 'helmet';
+import helmetap from 'helmet';
 import pool from './database/db.js';
 
 // Routes
@@ -25,7 +25,6 @@ import roomsRoutes from './routes/rooms.js';
 import schoolYearRoutes from './routes/schoolYearRoutes.js';
 import academicPeriodRoutes from './routes/academicPeriodRoutes.js';
 
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -40,6 +39,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // ============================================================
+p.use('/api/attendance', attendanceRoutes);
+dotenv.config();
 // 2️⃣ ROUTES (après les middlewares)
 // ============================================================
 app.use('/api/auth', authRoutes);
