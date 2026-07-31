@@ -63,7 +63,6 @@ app.use('/api/school-years', schoolYearRoutes);
 app.use('/api/academic-periods', academicPeriodRoutes);
 app.use('/api/lesson-journal', lessonJournalRoutes);
 // ...
-app.use('/api/lesson-journal', lessonJournalRoutes);
 // ============================================================
 // 3. Health checks
 // ============================================================
