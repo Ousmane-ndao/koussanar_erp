@@ -5,21 +5,20 @@ import { authenticateToken, requirePermission } from '../middleware/rbac.js';
 
 const router = express.Router();
 
+// Routes GET
 router.get('/', authenticateToken, lessonController.getAllLessons);
 router.get('/:id', authenticateToken, lessonController.getLessonById);
 router.get('/:lessonId/attachments', authenticateToken, lessonController.getAttachments);
 
+// Routes POST
 router.post('/', authenticateToken, requirePermission('enter_grades'), [
-    body('teacher_id').notEmpty().withMessage('Enseignant requis'),
-    body('class_id').notEmpty().withMessage('Classe requise'),
-    body('subject_id').notEmpty().withMessage('Matière requise'),
-    body('title').trim().notEmpty().withMessage('Titre requis'),
-    body('lesson_date').isISO8601().withMessage('Date invalide'),
+    body('teacher_id').notEmpty(),
+    body('class_id').notEmpty(),
+    body('subject_id').notEmpty(),
+    body('title').trim().notEmpty(),
+    body('lesson_date').isISO8601(),
     body('content').optional().trim(),
     body('homework').optional().trim(),
-    body('start_time').optional().matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/),
-    body('end_time').optional().matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/),
-    body('is_published').optional().isBoolean(),
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -29,8 +28,8 @@ router.post('/', authenticateToken, requirePermission('enter_grades'), [
 });
 
 router.post('/:lessonId/attachments', authenticateToken, requirePermission('enter_grades'), [
-    body('file_name').notEmpty().withMessage('Nom du fichier requis'),
-    body('file_path').notEmpty().withMessage('Chemin du fichier requis'),
+    body('file_name').notEmpty(),
+    body('file_path').notEmpty(),
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -39,10 +38,10 @@ router.post('/:lessonId/attachments', authenticateToken, requirePermission('ente
     await lessonController.addAttachment(req, res);
 });
 
+// Routes PUT / DELETE
 router.put('/:id', authenticateToken, requirePermission('enter_grades'), [
     body('title').optional().trim().notEmpty(),
     body('lesson_date').optional().isISO8601(),
-    body('content').optional().trim(),
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
