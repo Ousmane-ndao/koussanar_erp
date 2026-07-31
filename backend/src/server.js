@@ -3,8 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import pool from './database/db.js';
-import lessonJournalRoutes from './routes/lesson-journal.js';
-// Routes
+import lessonJournalRoutes from './routes/lessonJournal.js';
 import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
 import classesRoutes from './routes/classes.js';
