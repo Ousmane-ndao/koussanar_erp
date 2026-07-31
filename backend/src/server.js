@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import pool from './database/db.js';
-
+import lessonJournalRoutes from './routes/lessonJournal.js';
 // Routes
 import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
@@ -61,6 +61,7 @@ app.use('/api/subjects', subjectsRoutes);
 app.use('/api/rooms', roomsRoutes);
 app.use('/api/school-years', schoolYearRoutes);
 app.use('/api/academic-periods', academicPeriodRoutes);
+app.use('/api/lesson-journal', lessonJournalRoutes);
 
 // ============================================================
 // 3. Health checks
