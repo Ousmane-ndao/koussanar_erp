@@ -16,6 +16,21 @@ class SchoolYear {
         return rows;
     }
 
+    static async getCurrent() {
+        const [rows] = await pool.execute(
+            `SELECT * FROM school_years WHERE is_active = TRUE ORDER BY start_date DESC LIMIT 1`
+        );
+        return rows[0];
+    }
+
+    static async findPeriods(schoolYearId) {
+        const [rows] = await pool.execute(
+            'SELECT * FROM academic_periods WHERE school_year_id = ?',
+            [schoolYearId]
+        );
+        return rows;
+    }
+
     static async create(data) {
         const { id, name, start_date, end_date, is_active } = data;
         const [result] = await pool.execute(
@@ -45,13 +60,6 @@ class SchoolYear {
     static async delete(id) {
         const [result] = await pool.execute('DELETE FROM school_years WHERE id = ?', [id]);
         return result;
-    }
-
-    static async getCurrent() {
-        const [rows] = await pool.execute(
-            `SELECT * FROM school_years WHERE is_active = TRUE ORDER BY start_date DESC LIMIT 1`
-        );
-        return rows[0];
     }
 }
 

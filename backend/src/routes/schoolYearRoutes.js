@@ -1,12 +1,14 @@
 import express from 'express';
+import * as schoolYearController from '../controllers/schoolYearController.js';
+
 const router = express.Router();
 
-router.post('/', (req, res) => {
-  res.status(201).json({ message: 'School-years route fonctionne !', received: req.body });
-});
-
-router.get('/', (req, res) => {
-  res.json([{ id: '1', name: '2026-2027' }]);
-});
+router.get('/', schoolYearController.getAllSchoolYears);
+router.get('/active', schoolYearController.getActiveSchoolYears);
+router.get('/current', schoolYearController.getCurrentSchoolYear);
+router.get('/:id', schoolYearController.getSchoolYearById);
+router.post('/', schoolYearController.createSchoolYear);
+router.put('/:id', schoolYearController.updateSchoolYear);
+router.delete('/:id', schoolYearController.deleteSchoolYear);
 
 export default router;

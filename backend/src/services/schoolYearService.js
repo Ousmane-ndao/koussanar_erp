@@ -27,7 +27,6 @@ class SchoolYearService {
     }
 
     async create(data) {
-        // Vérifier que le nom est unique
         const existing = await SchoolYear.findAll();
         if (existing.some(y => y.name === data.name)) {
             throw new Error('Une année scolaire avec ce nom existe déjà');
@@ -58,8 +57,7 @@ class SchoolYearService {
 
     async delete(id) {
         const year = await this.getById(id);
-        // Vérifier s'il y a des périodes associées
-        const periods = await SchoolYear.findPeriods(id); // On pourrait ajouter cette méthode
+        const periods = await SchoolYear.findPeriods(id);
         if (periods && periods.length > 0) {
             throw new Error('Impossible de supprimer une année qui a des périodes');
         }
