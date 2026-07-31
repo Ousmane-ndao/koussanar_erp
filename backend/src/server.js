@@ -1,8 +1,7 @@
-import helmet from 'helmet';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import helmetap from 'helmet';
+import helmet from 'helmet';
 import pool from './database/db.js';
 
 // Routes
@@ -26,23 +25,22 @@ import roomsRoutes from './routes/rooms.js';
 import schoolYearRoutes from './routes/schoolYearRoutes.js';
 import academicPeriodRoutes from './routes/academicPeriodRoutes.js';
 
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 // ============================================================
-// 1️⃣ MIDDLEWARES (TOUJOURS avant les routes)
+// 1. Middlewares
 // ============================================================
 app.use(helmet());
 app.use(cors());
-app.use(express.json());                    // ⬅️ INDISPENSABLE
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // ============================================================
-p.use('/api/attendance', attendanceRoutes);
-dotenv.config();
-// 2️⃣ ROUTES (après les middlewares)
+// 2. Routes (TOUTES avec app.use, PAS p.use)
 // ============================================================
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentsRoutes);
@@ -65,7 +63,7 @@ app.use('/api/school-years', schoolYearRoutes);
 app.use('/api/academic-periods', academicPeriodRoutes);
 
 // ============================================================
-// 3️⃣ Health checks
+// 3. Health checks
 // ============================================================
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
@@ -84,7 +82,7 @@ app.get('/db-test', async (req, res) => {
 });
 
 // ============================================================
-// 4️⃣ Error handling
+// 4. Error handling
 // ============================================================
 app.use((err, req, res, next) => {
   console.error('='.repeat(50));
@@ -103,7 +101,7 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// 5️⃣ Démarrer
+// 5. Démarrer
 // ============================================================
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
