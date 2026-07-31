@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import pool from './database/db.js';
 import lessonJournalRoutes from './routes/lessonJournal.js';
+
 // Routes
 import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
