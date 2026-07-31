@@ -1,5 +1,6 @@
 import LessonJournal from '../models/LessonJournal.js';
 import { generateUUID } from '../utils/uuid.js';
+import pool from '../database/db.js';
 
 class LessonJournalService {
     async getAll(filters = {}) {
@@ -7,21 +8,24 @@ class LessonJournalService {
     }
 
     async getById(id) {
-        const entry = await LessonJournal.findById(id);
-        if (!entry) {
-            throw new Error('Séance non trouvée');
+        const lesson = await LessonJournal.findById(id);
+        if (!lesson) {
+            throw new Error('Cours non trouvé');
         }
-        return entry;
+        return lesson;
     }
 
     async create(data, userId) {
+        const [teacher] = await pool.execute('SELECT id FROM teachers WHERE id = ?', [data.teacher_id]);
+        if (teacher.length === 0) {
+            throw new Error('Enseignant non trouvé');
+        }
         const id = generateUUID();
-        const entryData = {
+        const lessonData = {
             id,
             teacher_id: data.teacher_id,
             class_id: data.class_id,
             subject_id: data.subject_id,
-            schedule_id: data.schedule_id || null,
             title: data.title,
             content: data.content || null,
             homework: data.homework || null,
@@ -33,7 +37,7 @@ class LessonJournalService {
             is_published: data.is_published || false,
             created_by: userId
         };
-        await LessonJournal.create(entryData);
+        await LessonJournal.create(lessonData);
         return this.getById(id);
     }
 
@@ -50,22 +54,26 @@ class LessonJournalService {
 
     async getAttachments(lessonId) {
         await this.getById(lessonId);
-        return await LessonJournal.findAttachments(lessonId);
+        return await LessonJournal.getAttachments(lessonId);
     }
 
     async addAttachment(lessonId, fileData) {
         await this.getById(lessonId);
         const id = generateUUID();
-        await LessonJournal.addAttachment({
+        const attachmentData = {
             id,
             lesson_id: lessonId,
-            ...fileData
-        });
-        return await this.getAttachments(lessonId);
+            file_name: fileData.file_name,
+            file_path: fileData.file_path,
+            file_type: fileData.file_type || null,
+            file_size: fileData.file_size || null
+        };
+        await LessonJournal.addAttachment(attachmentData);
+        return attachmentData;
     }
 
-    async deleteAttachment(attachmentId) {
-        await LessonJournal.deleteAttachment(attachmentId);
+    async deleteAttachment(id) {
+        await LessonJournal.deleteAttachment(id);
     }
 }
 
